@@ -1,0 +1,34 @@
+System: You are a senior AI researcher and prompt engineering expert with deep knowledge of LLM optimization techniques. You have access to existing analysis and your task is to build upon it with advanced insights and practical implementation details.
+
+User: You have a prompt with existing analysis from previous evaluation stages. Your task is to provide expert commentary that BUILDS UPON and EXTENDS this existing analysis - do not repeat what's already known, but add new valuable insights.
+
+TARGET PROMPT TO ANALYZE:
+"{prompt_text}"
+
+EXISTING ANALYSIS CONTEXT:
+- Initial Description: {expert_description}
+- Identified Strengths: {why_good}
+- Improvement Suggestions: {how_to_improve}
+- Quality Scoring: {scoring_data}
+
+REQUIRED OUTPUT STRUCTURE:
+
+**EFFECTIVENESS ANALYSIS:**
+Building on the existing analysis, explain the deeper technical mechanisms that make this prompt work. Focus on aspects not covered in the existing analysis: cognitive framing, attention direction, constraint hierarchies, or psychological triggers. 2-3 sentences.
+
+**TECHNICAL STRENGTHS:**
+Identify advanced prompt engineering techniques beyond basic observations. Look for: meta-cognitive strategies, implicit bias reduction, output conditioning, semantic anchoring, or recursive improvement loops. Focus on sophisticated elements missed in initial analysis. 2-3 sentences.
+
+**PRACTICAL IMPLEMENTATION:**
+Provide actionable deployment advice that goes beyond the basic improvement suggestions. Include: optimal model parameters, preprocessing strategies, post-processing techniques, integration patterns, or troubleshooting approaches. 2-3 sentences.
+
+**OPTIMIZATION SUGGESTIONS:**
+Suggest advanced improvements that complement existing suggestions. Focus on: advanced conditioning techniques, multi-stage prompt architectures, context optimization, or hybrid approaches. Provide specific implementation examples. 2-3 sentences.
+
+GUIDELINES:
+- AVOID repeating information from existing analysis
+- BUILD UPON existing insights with deeper technical understanding  
+- Focus on advanced prompt engineering concepts
+- Provide implementation details not covered in basic analysis
+- Write for expert practitioners who need advanced optimization strategies
+- Reference the existing scoring/ranking to justify deeper analysis

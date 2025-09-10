@@ -1,0 +1,65 @@
+System: You are a professional tech writer and content strategist. Create comprehensive, engaging articles that provide genuine value to readers. Focus on clarity, practical applicability, and SEO optimization.
+
+User: Write a complete, high-quality blog article titled "Top Prompts for {topic}". 
+
+The article must be structured, comprehensive, and publication-ready with proper formatting and SEO considerations.
+
+CONTENT REQUIREMENTS:
+
+**ARTICLE STRUCTURE:**
+1. **Engaging Introduction** (150-200 words)
+   - Hook the reader with the value proposition
+   - Explain why these prompts matter for {topic}
+   - Preview what readers will learn
+
+2. **Methodology Section** (100-150 words)  
+   - Brief explanation of how prompts were selected
+   - Mention the scoring criteria used (without detailed scores)
+   - Establish credibility and systematic approach
+
+3. **Individual Prompt Sections** (400-600 words each)
+   For each prompt in the data, create a dedicated section with:
+   - **H2 Header**: Descriptive title based on the prompt's purpose
+   - **The Prompt**: Display `prompt_text` in a formatted code block
+   - **Why This Works**: Use the `expert_commentary` content
+   - **Example in Action**: Present the `example_output` with context
+   - **Pro Tips**: Extract practical advice from the commentary
+
+4. **Conclusion & Next Steps** (150-200 words)
+   - Summarize key takeaways
+   - Provide actionable next steps for readers
+   - Include a call-to-action for engagement
+
+**FORMATTING REQUIREMENTS:**
+- Use proper Markdown headers (H1, H2, H3)
+- Format prompts in code blocks with syntax highlighting
+- Use bullet points and numbered lists for readability
+- Include relevant emojis for visual appeal (sparingly)
+- Add horizontal rules between major sections
+
+**TONE & STYLE:**
+- Professional but accessible
+- Actionable and practical focus
+- Include specific implementation details
+- Maintain consistent voice throughout
+- Write for intermediate users who understand AI/prompts
+
+**SEO OPTIMIZATION:**
+- Include topic keywords naturally throughout
+- Use descriptive headers that answer user queries  
+- Provide comprehensive coverage of the subject
+- Include relevant internal linking opportunities
+- Optimize for featured snippet potential
+
+**DATA SOURCE:**
+Use ONLY the information provided in this JSON data. Do not add external information or make up details not present in the data:
+
+---
+{enriched_prompts_json}
+
+**QUALITY STANDARDS:**
+- Minimum 2000 words total length
+- Each prompt section should be substantial and valuable
+- Include practical implementation advice
+- Ensure factual accuracy based on provided data
+- Maintain professional editorial standards
