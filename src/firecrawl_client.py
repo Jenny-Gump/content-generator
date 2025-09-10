@@ -48,12 +48,23 @@ class FirecrawlClient:
 
     async def scrape_url(self, session: aiohttp.ClientSession, url_to_scrape: str) -> Dict[str, Any]:
         """
-        Scrapes a single URL using the Firecrawl Scrape API v2.
+        Scrapes a single URL using the Firecrawl Scrape API v2 with enhanced content filtering.
         """
         scrape_url = f"{self.base_url}/scrape"
         json_data = {
             "url": url_to_scrape,
-            "onlyMainContent": True
+            "onlyMainContent": True,
+            "excludeTags": [
+                'nav', 'header', 'footer', 'aside', 'form', 'script', 'style',
+                'iframe', 'video', 'audio', 'canvas', 'svg', 'noscript',
+                'button', 'input', 'select', 'textarea'
+            ],
+            "includeTags": [
+                'main', 'article', 'section', 'div', 'p', 'h1', 'h2', 'h3', 
+                'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code'
+            ],
+            "removeBase64Images": True,
+            "blockAds": True
         }
         logger.info(f"Scraping URL: {url_to_scrape}")
         try:

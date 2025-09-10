@@ -141,39 +141,90 @@ def select_best_sources(scored_sources: List[Dict[str, Any]]) -> List[Dict[str, 
 
 def clean_content(sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Cleans the Markdown content of the top sources with improved regex patterns.
+    Cleans the Markdown content of the top sources with improved regex patterns and structural cleaning.
     """
     logger.info(f"Cleaning content for {len(sources)} sources.")
     
     for source in sources:
         text = source.get("content", "")
+        original_length = len(text)
 
-        # Pattern to remove markdown links but keep the text, e.g., [text](url) -> text
-        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        # 1. Remove markdown links but keep the text, e.g., [text](url) -> text
+        text = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', text)
         
-        # Pattern to remove image links, e.g., ![alt](url)
-        text = re.sub(r'!\\\[[^\\]*\]\([^)]+\)', '', text)
+        # 2. Remove ALL image references (improved pattern)
+        text = re.sub(r'!\[([^\]]*)\](\([^)]*\))?', '', text, flags=re.MULTILINE)
+        
+        # 3. Remove empty links and parentheses with URLs
+        text = re.sub(r'\[([^\]]*)\]\(\s*\)', r'\1', text)  # Empty links
+        text = re.sub(r'\(\s*https?://[^)]+\)', '', text)   # Bare URLs in parentheses
 
-        # Pattern to remove bare URLs in parentheses
-        text = re.sub(r'\(\s*https?://[^)]+\)', '', text)
+        # 4. Remove common UI elements and navigation words (expanded)
+        ui_patterns = [
+            r'\b(Share|Watch Now|Mark as Completed|Table of Contents|Contents|Menu|Search|Log in|Sign up|Back to top|Read more|Navigate|Close|Open|Toggle|Skip|Continue|Subscribe|Follow|Download|Save|Print|Copy|Edit|Delete|Cancel|Submit|Next|Previous|Home|About|Contact|Privacy|Terms|Cookie|Support|Help)\b',
+            r'\b(Sign in|Sign out|Register|Login|Logout|Join|Buy|Purchase|Order|Cart|Checkout|Payment|Shipping|Delivery)\b'
+        ]
+        for pattern in ui_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
 
-        # Remove common UI words/phrases
-        text = re.sub(r'\b(Share|Watch Now|Mark as Completed|Table of Contents|Contents|Menu|Search|Log in|Sign up|Back to top|Read more)\b', '', text, flags=re.IGNORECASE)
+        # 5. Remove social media and sharing elements
+        social_patterns = [
+            r'\b(Twitter|Facebook|Instagram|LinkedIn|YouTube|TikTok|Share on|Follow us|Like us|Subscribe to)\b',
+            r'(Like|Share|Tweet|Pin|\+1)\s*\(\s*\d*\s*\)'  # Social buttons with counts
+        ]
+        for pattern in social_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
 
-        # Remove lines that are just markdown separators or noise
+        # 6. Remove repetitive navigation blocks and duplicates
+        text = _remove_duplicate_blocks(text)
+
+        # 7. Clean lines: remove markdown separators, empty elements, and very short lines
         lines = text.split('\n')
         clean_lines = []
         for line in lines:
             stripped_line = line.strip()
-            # Keep the line if it's not empty and doesn't consist solely of markdown separators
-            if stripped_line and not re.fullmatch(r'[\s\*\-_#>=]+', stripped_line):
+            if (stripped_line and 
+                len(stripped_line) >= 10 and  # Minimum line length
+                not re.fullmatch(r'[\s\*\-_#>=!]+', stripped_line) and  # Not just symbols
+                not re.fullmatch(r'\s*\[\s*\]\s*', stripped_line) and  # Not empty brackets
+                not re.fullmatch(r'\s*\(\s*\)\s*', stripped_line)):   # Not empty parentheses
                 clean_lines.append(stripped_line)
         
-        # Rejoin and clean up excessive newlines
+        # 8. Rejoin and clean up excessive whitespace
         cleaned_text = '\n'.join(clean_lines)
         cleaned_text = re.sub(r'\n{3,}', '\n\n', cleaned_text)
-
+        cleaned_text = re.sub(r'\\\\\s*', ' ', cleaned_text)  # Remove escaped backslashes
+        
+        # 9. Calculate cleaning metrics
+        cleaned_length = len(cleaned_text.strip())
+        reduction_percent = ((original_length - cleaned_length) / original_length * 100) if original_length > 0 else 0
+        
         source["cleaned_content"] = cleaned_text.strip()
+        source["original_length"] = original_length
+        source["cleaned_length"] = cleaned_length
+        source["reduction_percent"] = round(reduction_percent, 1)
+        
+        logger.info(f"Cleaned {source['url'][:50]}... - Reduced from {original_length:,} to {cleaned_length:,} chars ({reduction_percent:.1f}% reduction)")
         
     logger.info("Finished cleaning content.")
     return sources
+
+
+def _remove_duplicate_blocks(text: str) -> str:
+    """
+    Removes duplicate blocks of text that appear multiple times (common in navigation).
+    """
+    lines = text.split('\n')
+    seen_blocks = set()
+    unique_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if len(stripped) > 5:  # Only check substantial lines
+            # If we've seen this line multiple times, skip it
+            if stripped in seen_blocks:
+                continue
+            seen_blocks.add(stripped)
+        unique_lines.append(line)
+    
+    return '\n'.join(unique_lines)

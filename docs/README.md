@@ -2,9 +2,16 @@
 
 This project is an automated pipeline for generating high-quality content based on a given topic. It leverages the Firecrawl API to search for relevant sources, scrapes their content, scores them based on a set of criteria, and cleans the best articles for final use.
 
-## Latest Updates (January 2025)
+## Latest Updates (September 2025)
 
-### ✅ Enhanced LLM Debugging & Transparency
+### 🔧 Content Cleaning Optimization
+- **Enhanced Firecrawl API Configuration**: Added `excludeTags` and `includeTags` for precise content filtering
+- **Improved Regex Patterns**: Fixed image removal, enhanced UI element detection, added social media filtering
+- **Structural Content Cleaning**: Added duplicate block removal and minimum line length filtering
+- **Content Quality Metrics**: Real-time tracking of cleaning efficiency with before/after statistics
+- **Smart Navigation Filtering**: Automatic removal of repetitive navigation elements and UI clutter
+
+### ✅ Previous Updates (January 2025)
 - **Full LLM Request/Response Logging**: All interactions with DeepSeek API are now logged for debugging
 - **Robust JSON Parsing**: Fixed "Extra data" and "Failed to parse JSON" errors with multiple parsing strategies  
 - **Improved Prompts**: Enhanced prompt engineering with clear examples and format specifications

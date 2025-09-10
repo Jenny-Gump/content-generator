@@ -95,6 +95,12 @@ The main pipeline for WordPress article generation.
     cleaned_sources = clean_content(top_sources)
     save_artifact(cleaned_sources, paths["cleaning"], "final_cleaned_sources.json")
 
+    # Log cleaning metrics summary
+    total_original = sum(source.get('original_length', 0) for source in cleaned_sources)
+    total_cleaned = sum(source.get('cleaned_length', 0) for source in cleaned_sources)
+    overall_reduction = ((total_original - total_cleaned) / total_original * 100) if total_original > 0 else 0
+    logger.info(f"Content cleaning summary: {total_original:,} → {total_cleaned:,} chars ({overall_reduction:.1f}% reduction)")
+
     # --- Этап 7: Извлечение промптов ---
     all_prompts = []
     for i, source in enumerate(cleaned_sources):

@@ -4,9 +4,23 @@ This document provides a detailed, step-by-step breakdown of the simplified cont
 
 **MAJOR UPDATE**: The pipeline has been significantly simplified to focus on WordPress article generation for prompt collections. We now have a streamlined 8-stage process that ends with a complete WordPress-ready article.
 
-## 🔍 LLM Debugging Features (NEW)
+## 🔧 Content Cleaning Optimization (September 2025)
 
-Starting from January 2025, all LLM interactions are automatically logged for debugging:
+Major improvements to content cleaning pipeline for better quality and efficiency:
+- **Enhanced Firecrawl Filtering**: Added `excludeTags` and `includeTags` for precise HTML element filtering
+- **Improved Regex Patterns**: Fixed image removal bugs, expanded UI element detection
+- **Structural Cleaning**: Duplicate block removal, minimum line length filtering
+- **Quality Metrics**: Real-time tracking of cleaning efficiency (before/after statistics)
+
+**Benefits**:
+- ⬇️ **50-70% content reduction** while preserving valuable information
+- 🎯 **Higher extraction quality** with less noise in LLM inputs
+- ⚡ **Faster processing** due to reduced content volume
+- 📊 **Transparent monitoring** with detailed cleaning metrics
+
+## 🔍 LLM Debugging Features (January 2025)
+
+All LLM interactions are automatically logged for debugging:
 - **Full Request Logging**: Every prompt sent to DeepSeek API
 - **Raw Response Logging**: Unprocessed LLM outputs before JSON parsing
 - **Error Context**: Failed parsing attempts with detailed error messages
