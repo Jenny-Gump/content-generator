@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import openai
 
 from src.logger_config import logger
+from src.token_tracker import TokenTracker
 
 # Загружаем переменные среды
 load_dotenv()
@@ -181,7 +182,7 @@ def _load_and_prepare_messages(article_type: str, prompt_name: str, replacements
         raise
 
 def extract_prompts_from_article(article_text: str, topic: str, base_path: str = None, 
-                                 source_id: str = None) -> List[Dict]:
+                                 source_id: str = None, token_tracker: TokenTracker = None) -> List[Dict]:
     """Extracts structured prompt data from a single article text."""
     logger.info("Extracting prompts from one article...")
     try:
@@ -197,6 +198,15 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
             timeout=90
         )
         content = response.choices[0].message.content
+        
+        # Track token usage
+        if token_tracker and response.usage:
+            token_tracker.add_usage(
+                stage="extract_prompts",
+                usage=response.usage,
+                source_id=source_id,
+                extra_metadata={"topic": topic, "model": DEEPSEEK_MODEL}
+            )
         
         # Сохраняем запрос и ответ для отладки
         if base_path:
@@ -221,7 +231,8 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
         return []
 
 
-def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str = None) -> Dict[str, Any]:
+def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str = None, 
+                              token_tracker: TokenTracker = None) -> Dict[str, Any]:
     """Generates a WordPress-ready article from collected prompts."""
     logger.info("Generating WordPress article from collected prompts...")
     try:
@@ -238,6 +249,18 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
             response_format={"type": "json_object"}  # Enforce JSON response
         )
         response = response_obj.choices[0].message.content
+        
+        # Track token usage
+        if token_tracker and response_obj.usage:
+            token_tracker.add_usage(
+                stage="generate_wordpress_article",
+                usage=response_obj.usage,
+                extra_metadata={
+                    "topic": topic, 
+                    "input_prompts_count": len(prompts),
+                    "model": DEEPSEEK_MODEL
+                }
+            )
         
         # Сохраняем запрос и ответ для отладки
         if base_path:

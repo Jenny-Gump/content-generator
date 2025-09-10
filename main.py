@@ -17,6 +17,7 @@ from src.llm_processing import (
     extract_prompts_from_article,
     generate_wordpress_article,
 )
+from src.token_tracker import TokenTracker
 
 def sanitize_filename(topic):
     """Sanitizes the topic to be used as a valid directory name."""
@@ -38,6 +39,9 @@ async def main_flow(topic: str):
 The main pipeline for WordPress article generation.
     """
     logger.info(f"--- Starting Content Generation Pipeline for topic: '{topic}' ---")
+    
+    # Initialize token tracker
+    token_tracker = TokenTracker(topic=topic)
 
     # --- Setup Directories ---
     sanitized_topic = sanitize_filename(topic)
@@ -109,7 +113,8 @@ The main pipeline for WordPress article generation.
             article_text=source['cleaned_content'], 
             topic=topic, 
             base_path=paths["extraction"],
-            source_id=source_id
+            source_id=source_id,
+            token_tracker=token_tracker
         )
         all_prompts.extend(prompts)
     save_artifact(all_prompts, paths["extraction"], "all_prompts.json")
@@ -123,7 +128,8 @@ The main pipeline for WordPress article generation.
     wordpress_data = generate_wordpress_article(
         prompts=all_prompts, 
         topic=topic, 
-        base_path=paths["final_article"]
+        base_path=paths["final_article"],
+        token_tracker=token_tracker
     )
     
     # Сохраняем полную JSON структуру
@@ -136,8 +142,16 @@ The main pipeline for WordPress article generation.
     else:
         logger.error("Invalid WordPress data structure returned")
 
+    # --- Save Token Usage Report ---
+    token_report_path = token_tracker.save_token_report(
+        base_path=base_output_path,
+        filename="token_usage_report.json"
+    )
+    
     logger.info("--- Pipeline Finished ---")
     logger.info(f"All artifacts saved in: {base_output_path}")
+    if token_report_path:
+        logger.info(f"Token usage report: {token_report_path}")
 
 
 if __name__ == "__main__":
