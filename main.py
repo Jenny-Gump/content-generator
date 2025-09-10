@@ -15,9 +15,7 @@ from src.processing import (
 )
 from src.llm_processing import (
     extract_prompts_from_article,
-    rank_and_select_prompts,
-    generate_expert_content_for_prompt,
-    assemble_final_article,
+    generate_wordpress_article,
 )
 
 def sanitize_filename(topic):
@@ -35,11 +33,11 @@ def save_artifact(data, path, filename):
             json.dump(data, f, indent=4, ensure_ascii=False)
     logger.info(f"Saved artifact to {filepath}")
 
-async def main_flow(topic: str, stage: int):
+async def main_flow(topic: str):
     """
-The main pipeline, stoppable at different stages.
+The main pipeline for WordPress article generation.
     """
-    logger.info(f"--- Starting Content Generation Pipeline for topic: '{topic}' (up to stage {stage}) ---")
+    logger.info(f"--- Starting Content Generation Pipeline for topic: '{topic}' ---")
 
     # --- Setup Directories ---
     sanitized_topic = sanitize_filename(topic)
@@ -51,9 +49,7 @@ The main pipeline, stoppable at different stages.
         "selection": os.path.join(base_output_path, "04_selection"),
         "cleaning": os.path.join(base_output_path, "05_cleaning"),
         "extraction": os.path.join(base_output_path, "06_extracted_prompts"),
-        "ranking": os.path.join(base_output_path, "07_ranked_prompts"),
-        "enrichment": os.path.join(base_output_path, "08_enriched_prompts"),
-        "final_article": os.path.join(base_output_path, "09_final_article"),
+        "final_article": os.path.join(base_output_path, "07_final_article"),
     }
     for path in paths.values():
         os.makedirs(path, exist_ok=True)
@@ -112,62 +108,35 @@ The main pipeline, stoppable at different stages.
         all_prompts.extend(prompts)
     save_artifact(all_prompts, paths["extraction"], "all_prompts.json")
     
-    if stage == 7:
-        logger.info(f"--- Pipeline stopped after stage 7 as requested. ---")
-        return
-
     if not all_prompts:
         logger.error("No prompts could be extracted from the sources. Exiting.")
         return
 
-    # --- Этап 8: Ранжирование и отбор ---
-    best_prompts = rank_and_select_prompts(
+    # --- New Stage: Generate WordPress Article ---
+    logger.info("Generating WordPress-ready article from collected prompts...")
+    wordpress_data = generate_wordpress_article(
         prompts=all_prompts, 
-        topic=topic, 
-        base_path=paths["ranking"]
-    )
-    save_artifact(best_prompts, paths["ranking"], "best_prompts.json")
-
-    if stage == 8:
-        logger.info(f"--- Pipeline stopped after stage 8 as requested. ---")
-        return
-
-    if not best_prompts:
-        logger.error("LLM failed to rank or select any prompts. Exiting.")
-        return
-
-    # --- Этап 9: Обогащение контента ---
-    enriched_prompts = []
-    for i, prompt in enumerate(best_prompts):
-        # Pass the whole prompt object for context
-        enriched_prompt = generate_expert_content_for_prompt(
-            prompt=prompt, 
-            base_path=paths["enrichment"],
-            prompt_index=i+1
-        )
-        enriched_prompts.append(enriched_prompt)
-    save_artifact(enriched_prompts, paths["enrichment"], "enriched_prompts.json")
-
-    if stage == 9:
-        logger.info(f"--- Pipeline stopped after stage 9 as requested. ---")
-        return
-
-    # --- Этап 10: Сборка статьи ---
-    final_article_md = assemble_final_article(
-        enriched_prompts=enriched_prompts, 
         topic=topic, 
         base_path=paths["final_article"]
     )
-    save_artifact(final_article_md, paths["final_article"], "final_article.md")
+    
+    # Сохраняем полную JSON структуру
+    save_artifact(wordpress_data, paths["final_article"], "wordpress_data.json")
+    
+    # Сохраняем отдельно HTML контент для удобства
+    if isinstance(wordpress_data, dict) and "content" in wordpress_data:
+        save_artifact(wordpress_data["content"], paths["final_article"], "article_content.html")
+        logger.info(f"Generated article: {wordpress_data.get('title', 'No title')}")
+    else:
+        logger.error("Invalid WordPress data structure returned")
 
     logger.info("--- Pipeline Finished ---")
     logger.info(f"All artifacts saved in: {base_output_path}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AI Content Generation Pipeline")
+    parser = argparse.ArgumentParser(description="AI Content Generation Pipeline for WordPress")
     parser.add_argument("topic", type=str, help="The topic for content generation.")
-    parser.add_argument("--stage", type=int, default=10, help="Stage to run up to (7, 8, 9, or 10). Default is 10 (full run).")
     args = parser.parse_args()
 
-    asyncio.run(main_flow(args.topic, args.stage))
+    asyncio.run(main_flow(args.topic))

@@ -220,143 +220,22 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
         logger.error(f"Failed to extract prompts via API: {e}")
         return []
 
-def rank_and_select_prompts(prompts: List[Dict], topic: str, base_path: str = None) -> List[Dict]:
-    """Ranks and selects the best prompts from a list."""
-    logger.info(f"Ranking and selecting from {len(prompts)} prompts...")
+
+def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str = None) -> Dict[str, Any]:
+    """Generates a WordPress-ready article from collected prompts."""
+    logger.info("Generating WordPress article from collected prompts...")
     try:
         messages = _load_and_prepare_messages(
             "prompt_collection",
-            "02_rank",
+            "01_generate_wordpress_article",
             {"topic": topic, "prompts_json": json.dumps(prompts, indent=2)}
-        )
-        response = client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            messages=messages,
-            temperature=0.3,
-            timeout=90
-        )
-        content = response.choices[0].message.content
-        
-        # Сохраняем запрос и ответ для отладки
-        if base_path:
-            save_llm_interaction(
-                base_path=base_path,
-                stage_name="rank_prompts",
-                messages=messages,
-                response=content,
-                extra_params={
-                    "topic": topic, 
-                    "input_prompts_count": len(prompts)
-                }
-            )
-        
-        parsed_json = _parse_json_from_response(content)
-        if isinstance(parsed_json, list):
-            return parsed_json
-        elif isinstance(parsed_json, dict):
-            return parsed_json.get("data", [parsed_json])  # If no data key, return object wrapped in array
-        else:
-            return []
-    except Exception as e:
-        logger.error(f"Failed to rank prompts via API: {e}")
-        return []
-
-def generate_expert_content_for_prompt(prompt: Dict, base_path: str = None, 
-                                      prompt_index: int = None) -> Dict:
-    """Generates an example output and expert commentary for a single prompt."""
-    prompt_text = prompt.get("prompt_text", "")
-    logger.info(f"Generating expert content for prompt: '{prompt_text[:50]}...'")
-    
-    # Формируем ID для запросов (если есть индекс)
-    request_id_base = f"prompt_{prompt_index}" if prompt_index is not None else "single"
-    
-    try:
-        # Первый запрос: генерация примера выполнения с полным контекстом
-        example_context = f"""PROMPT TO DEMONSTRATE:
-{prompt_text}
-
-CONTEXT FOR BETTER EXAMPLE:
-- Purpose: {prompt.get('expert_description', 'Not specified')}
-- Why it's effective: {prompt.get('why_good', 'Not specified')}
-
-Generate a realistic, high-quality example of what this prompt would produce when executed. Show the actual output/result, not meta-commentary about the prompt."""
-        
-        example_messages = [{"role": "user", "content": example_context}]
-        example_response_obj = client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            messages=example_messages,
-            max_tokens=200,
-            temperature=0.3,
-            timeout=90
-        )
-        example_response = example_response_obj.choices[0].message.content
-        prompt["example_output"] = example_response
-        
-        # Сохраняем первый запрос
-        if base_path:
-            save_llm_interaction(
-                base_path=base_path,
-                stage_name="generate_example",
-                messages=example_messages,
-                response=example_response,
-                request_id=f"{request_id_base}_example",
-                extra_params={"max_tokens": 200, "purpose": "generate_example_output"}
-            )
-
-        # Второй запрос: генерация экспертного комментария с существующим анализом
-        commentary_messages = _load_and_prepare_messages(
-            "prompt_collection",
-            "03_generate_commentary",
-            {
-                "prompt_text": prompt_text,
-                "expert_description": prompt.get('expert_description', 'Not provided'),
-                "why_good": prompt.get('why_good', 'Not provided'), 
-                "how_to_improve": prompt.get('how_to_improve', 'Not provided'),
-                "scoring_data": f"Total Score: {prompt.get('total_score', 'N/A')}, Rank: {prompt.get('rank', 'N/A')}" if 'total_score' in prompt else 'Not available'
-            }
-        )
-        commentary_response_obj = client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            messages=commentary_messages,
-            max_tokens=600,
-            temperature=0.3,
-            timeout=90
-        )
-        commentary_response = commentary_response_obj.choices[0].message.content
-        prompt["expert_commentary"] = commentary_response
-        
-        # Сохраняем второй запрос
-        if base_path:
-            save_llm_interaction(
-                base_path=base_path,
-                stage_name="generate_commentary",
-                messages=commentary_messages,
-                response=commentary_response,
-                request_id=f"{request_id_base}_commentary",
-                extra_params={"max_tokens": 600, "purpose": "generate_expert_commentary"}
-            )
-        
-    except Exception as e:
-        logger.error(f"Failed to generate expert content for prompt '{prompt_text[:50]}...': {e}")
-        prompt["example_output"] = "Error generating example."
-        prompt["expert_commentary"] = "Error generating commentary."
-    
-    return prompt
-
-def assemble_final_article(enriched_prompts: List[Dict], topic: str, base_path: str = None) -> str:
-    """Assembles the final article from the enriched prompts."""
-    logger.info("Assembling the final article...")
-    try:
-        messages = _load_and_prepare_messages(
-            "prompt_collection",
-            "04_assemble_article",
-            {"topic": topic, "enriched_prompts_json": json.dumps(enriched_prompts, indent=2)}
         )
         response_obj = client.chat.completions.create(
             model=DEEPSEEK_MODEL,
             messages=messages,
             temperature=0.3,
-            timeout=90
+            timeout=300,  # Increased timeout to 5 minutes
+            response_format={"type": "json_object"}  # Enforce JSON response
         )
         response = response_obj.choices[0].message.content
         
@@ -364,17 +243,48 @@ def assemble_final_article(enriched_prompts: List[Dict], topic: str, base_path: 
         if base_path:
             save_llm_interaction(
                 base_path=base_path,
-                stage_name="assemble_article",
+                stage_name="generate_wordpress_article",
                 messages=messages,
                 response=response,
                 extra_params={
                     "topic": topic, 
-                    "input_prompts_count": len(enriched_prompts),
-                    "purpose": "assemble_final_article"
+                    "input_prompts_count": len(prompts),
+                    "purpose": "generate_wordpress_article",
+                    "response_format": "json_object"
                 }
             )
         
-        return response
+        # Парсим JSON ответ
+        try:
+            wordpress_data = json.loads(response)
+            logger.info(f"Successfully generated WordPress article: {wordpress_data.get('title', 'No title')}")
+            return wordpress_data
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response from LLM: {e}")
+            logger.error(f"Raw response: {response[:500]}...")
+            # Fallback: return error structure
+            return {
+                "title": f"Ошибка генерации статьи: {topic}",
+                "content": f"<p>Произошла ошибка при генерации статьи. Сырой ответ: {response[:1000]}</p>",
+                "excerpt": "Ошибка генерации статьи",
+                "slug": "error-generating-article",
+                "categories": ["prompts"],
+                "_yoast_wpseo_title": "Ошибка генерации",
+                "_yoast_wpseo_metadesc": "Произошла ошибка при генерации статьи",
+                "image_caption": "Ошибка генерации изображения",
+                "focus_keyword": "промпты"
+            }
+            
     except Exception as e:
-        logger.error(f"Failed to assemble final article: {e}")
-        return "Error: Could not generate the final article."
+        logger.error(f"Failed to generate WordPress article: {e}")
+        return {
+            "title": f"Критическая ошибка: {topic}",
+            "content": f"<p>Критическая ошибка при генерации статьи: {str(e)}</p>",
+            "excerpt": "Критическая ошибка генерации",
+            "slug": "critical-error",
+            "categories": ["prompts"],
+            "_yoast_wpseo_title": "Критическая ошибка",
+            "_yoast_wpseo_metadesc": "Критическая ошибка при генерации статьи",
+            "image_caption": "Критическая ошибка",
+            "focus_keyword": "ошибка"
+        }
