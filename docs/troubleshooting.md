@@ -65,12 +65,13 @@ This guide covers configuration and optimization tips for the Content Generation
 
 ### 2. JSON Parsing Issues
 
-**Problem**: LLM returns malformed JSON causing prompt extraction to fail
+**Problem**: LLM returns malformed JSON causing parsing failures
 
 **Symptoms**:
 - Log shows "⚠️ source_X extracted 0 prompts - possible JSON parsing issue"
 - Low extraction success rate (e.g., "4/10 prompts extracted (40% success rate)")
 - JSON parsing errors in logs
+- Editorial review falls back to original data
 
 **Common Causes**:
 
@@ -84,9 +85,29 @@ This guide covers configuration and optimization tips for the Content Generation
    - Some use different quote styles
    - **Solution**: Parser handles multiple formats automatically
 
-3. **Prompt Instructions Issue**:
+3. **Control Character Issues** ⚡ **NEW FIX (Sept 2025)**:
+   - LLM generates JSON with unescaped newlines, tabs, and other control characters
+   - Example: JSON contains literal `\n` instead of `\\n`
+   - Error: `"Invalid control character at: line X column Y"`
+   - **Solution**: Enhanced parser with manual field extraction fallback
+
+4. **Prompt Instructions Issue**:
    - Fixed in latest version: prompt now explicitly instructs to use standard JSON formatting
    - **Check**: Ensure `prompts/prompt_collection/01_extract.txt` contains updated instructions
+
+**⚡ NEW: Enhanced Error Recovery (Sept 2025)**:
+
+When JSON parsing fails due to control characters, the system now:
+1. Attempts standard JSON parsing
+2. Tries enhanced cleanup with regex-based field extraction
+3. Falls back to manual data extraction using pattern matching
+4. Preserves all LLM-generated content even if JSON structure is malformed
+
+**Example Fix Applied**:
+```
+Before: ❌ JSON parsing failed → fallback to original dirty data
+After:  ✅ Manual extraction → WordPress tags cleaned, all fields preserved
+```
 
 **Debugging Steps**:
 

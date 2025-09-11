@@ -382,144 +382,51 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
                 }
             )
         
-        # Парсим JSON ответ с улучшенной обработкой
-        try:
-            # Попытка 1: стандартный парсинг
-            wordpress_data = json.loads(response)
-            logger.info(f"Successfully generated WordPress article: {wordpress_data.get('title', 'No title')}")
-            return wordpress_data
-        except json.JSONDecodeError as e:
-            logger.warning(f"Standard JSON parsing failed: {e}")
-            logger.info("Attempting enhanced JSON parsing...")
-            
-            # Попытка 2: улучшенный парсинг
-            try:
-                # Удаляем возможные проблемные символы в начале/конце
-                cleaned_response = response.strip()
-                if cleaned_response.startswith('```json'):
-                    cleaned_response = cleaned_response[7:]
-                if cleaned_response.endswith('```'):
-                    cleaned_response = cleaned_response[:-3]
-                cleaned_response = cleaned_response.strip()
-                
-                # Проверяем валидность JSON структуры
-                if cleaned_response.startswith('{') and cleaned_response.count('{') > cleaned_response.count('}'):
-                    # Незавершенный JSON - ищем последнюю валидную структуру
-                    brace_count = 0
-                    last_valid_pos = -1
-                    
-                    for i, char in enumerate(cleaned_response):
-                        if char == '{':
-                            brace_count += 1
-                        elif char == '}':
-                            brace_count -= 1
-                            if brace_count == 0:
-                                last_valid_pos = i
-                                break
-                    
-                    if last_valid_pos > 0:
-                        cleaned_response = cleaned_response[:last_valid_pos + 1]
-                
-                wordpress_data = json.loads(cleaned_response)
-                logger.info(f"Enhanced JSON parsing successful: {wordpress_data.get('title', 'No title')}")
-                return wordpress_data
-                
-            except json.JSONDecodeError as e2:
-                logger.error(f"Enhanced JSON parsing also failed: {e2}")
-                logger.warning("JSON parsing failed, attempting manual data extraction...")
-                
-                # Alternative approach: manual extraction when JSON parsing fails
-                import re
-                
-                try:
-                    extracted_data = {}
-                    
-                    # Extract title
-                    title_match = re.search(r'"title":\s*"([^"]*(?:[^"\\]|\\.)*)"', response)
-                    if title_match:
-                        extracted_data["title"] = title_match.group(1)
-                        
-                    # Extract other simple fields
-                    for field in ["excerpt", "slug", "_yoast_wpseo_title", "_yoast_wpseo_metadesc", "image_caption", "focus_keyword"]:
-                        field_match = re.search(f'"{field}":\\s*"([^"]*(?:[^"\\\\]|\\\\.)*)"', response)
-                        if field_match:
-                            extracted_data[field] = field_match.group(1)
-                    
-                    # Extract categories array
-                    categories_match = re.search(r'"categories":\s*\[(.*?)\]', response, re.DOTALL)
-                    if categories_match:
-                        categories_str = categories_match.group(1)
-                        categories = [cat.strip().strip('"') for cat in categories_str.split(',') if cat.strip()]
-                        extracted_data["categories"] = categories
-                    
-                    # Extract content (most complex field)
-                    content_match = re.search(r'"content":\s*"(.*?)(?=",\s*"[^"]+":|\s*})', response, re.DOTALL)
-                    if content_match:
-                        content = content_match.group(1)
-                        # Basic cleanup of escaped chars we can handle
-                        content = content.replace('\\"', '"').replace('\\n', '\n')
-                        extracted_data["content"] = content
-                    
-                    if len(extracted_data) >= 6:  # We got most fields
-                        logger.info(f"Manual extraction successful: extracted {len(extracted_data)} fields")
-                        return extracted_data
-                    else:
-                        logger.error(f"Manual extraction incomplete: only got {len(extracted_data)} fields")
-                        
-                except Exception as extract_err:
-                    logger.error(f"Manual extraction also failed: {extract_err}")
-                
-                # Final fallback: return error structure
-                logger.error(f"All parsing attempts failed. Response length: {len(response)} characters")
-                logger.error(f"First 200 chars: {response[:200]}")
-                logger.error(f"Last 200 chars: {response[-200:]}")
-                
-                return {
-                    "title": f"Ошибка парсинга JSON: {topic}",
-                    "content": f"<p>Не удалось распарсить ответ от LLM. Ответ получен полностью ({len(response)} символов), но содержит ошибки JSON форматирования.</p><details><summary>Сырой ответ (первые 2000 символов)</summary><pre>{response[:2000]}</pre></details>",
-                    "excerpt": "Ошибка парсинга JSON ответа",
-                    "slug": "json-parsing-error",
-                    "categories": ["prompts"],
-                    "_yoast_wpseo_title": "Ошибка парсинга JSON",
-                    "_yoast_wpseo_metadesc": "Произошла ошибка при парсинге JSON ответа от LLM",
-                    "image_caption": "Ошибка парсинга JSON",
-                    "focus_keyword": "промпты"
-                }
+        # Просто возвращаем сырой ответ от LLM - пусть editorial_review обрабатывает
+        logger.info(f"Generated article from LLM, response length: {len(response)} characters")
+        return {"raw_response": response, "topic": topic}
             
     except Exception as e:
         logger.error(f"Failed to generate WordPress article: {e}")
-        return {
-            "title": f"Критическая ошибка: {topic}",
-            "content": f"<p>Критическая ошибка при генерации статьи: {str(e)}</p>",
-            "excerpt": "Критическая ошибка генерации",
-            "slug": "critical-error",
-            "categories": ["prompts"],
-            "_yoast_wpseo_title": "Критическая ошибка",
-            "_yoast_wpseo_metadesc": "Критическая ошибка при генерации статьи",
-            "image_caption": "Критическая ошибка",
-            "focus_keyword": "ошибка"
-        }
+        return {"raw_response": f"ERROR: {str(e)}", "topic": topic}
 
 
-def editorial_review(wordpress_data: Dict[str, Any], topic: str, base_path: str = None, 
+def editorial_review(raw_response: str, topic: str, base_path: str = None, 
                     token_tracker: TokenTracker = None, model_name: str = None) -> Dict[str, Any]:
     """
     Performs editorial review and cleanup of WordPress article data.
     
     Args:
-        wordpress_data: Dictionary with WordPress article data from generate_wordpress_article()
+        raw_response: Raw response string from generate_wordpress_article()
         topic: The topic for the article (used in editorial prompt)
         base_path: Path to save LLM interactions
         token_tracker: Token usage tracker
         model_name: Override model name (uses config default if None)
     """
-    logger.info("Starting editorial review and cleanup of WordPress article...")
+    logger.info("Starting editorial review and cleanup...")
+    
+    # Check for error responses
+    if raw_response.startswith("ERROR:"):
+        logger.error(f"Received error from previous stage: {raw_response}")
+        return {
+            "title": f"Ошибка генерации: {topic}",
+            "content": f"<p>Ошибка на предыдущем этапе: {raw_response}</p>",
+            "excerpt": "Ошибка генерации статьи",
+            "slug": "generation-error",
+            "categories": ["prompts"],
+            "_yoast_wpseo_title": "Ошибка генерации",
+            "_yoast_wpseo_metadesc": "Ошибка при генерации статьи",
+            "image_caption": "Ошибка",
+            "focus_keyword": "ошибка"
+        }
+    
+    # Call LLM for editorial review
     try:
         messages = _load_and_prepare_messages(
             "prompt_collection",
             "02_editorial_review", 
             {
-                "wordpress_data": json.dumps(wordpress_data, indent=2, ensure_ascii=False),
+                "raw_response": raw_response,
                 "topic": topic
             }
         )
@@ -532,8 +439,7 @@ def editorial_review(wordpress_data: Dict[str, Any], topic: str, base_path: str 
             model=model_to_use,
             messages=messages,
             temperature=0.2,  # Lower temperature for more consistent editing
-            timeout=300,  # 5 minute timeout
-            response_format={"type": "json_object"}  # Enforce JSON response
+            timeout=300  # 5 minute timeout
         )
         response = response_obj.choices[0].message.content
         
@@ -544,7 +450,7 @@ def editorial_review(wordpress_data: Dict[str, Any], topic: str, base_path: str 
                 stage="editorial_review",
                 usage=response_obj.usage,
                 extra_metadata={
-                    "original_title": wordpress_data.get('title', 'Unknown'),
+                    "topic": topic,
                     "model": model_to_use,
                     "provider": provider
                 }
@@ -558,118 +464,140 @@ def editorial_review(wordpress_data: Dict[str, Any], topic: str, base_path: str 
                 messages=messages,
                 response=response,
                 extra_params={
-                    "original_title": wordpress_data.get('title', 'Unknown'),
+                    "topic": topic,
                     "purpose": "editorial_review_and_cleanup",
-                    "response_format": "json_object",
                     "model": model_to_use
                 }
             )
         
         # Parse JSON response with enhanced error handling
         try:
-            # Attempt 1: standard parsing
-            edited_data = json.loads(response)
+            # Clean up response
+            cleaned_response = response.strip()
+            if cleaned_response.startswith('```json'):
+                cleaned_response = cleaned_response[7:]
+            if cleaned_response.endswith('```'):
+                cleaned_response = cleaned_response[:-3]
+            cleaned_response = cleaned_response.strip()
+            
+            # Try to parse JSON
+            edited_data = json.loads(cleaned_response)
             logger.info(f"Successfully completed editorial review: {edited_data.get('title', 'No title')}")
             return edited_data
+            
         except json.JSONDecodeError as e:
             logger.warning(f"Standard JSON parsing failed: {e}")
-            logger.info("Attempting enhanced JSON parsing...")
+            logger.info("Attempting enhanced JSON cleanup and parsing...")
             
+            # Enhanced JSON cleaning attempts
             try:
-                # Attempt 2: enhanced parsing with cleanup
-                cleaned_response = response.strip()
-                if cleaned_response.startswith('```json'):
-                    cleaned_response = cleaned_response[7:]
-                if cleaned_response.endswith('```'):
-                    cleaned_response = cleaned_response[:-3]
-                cleaned_response = cleaned_response.strip()
-                
-                # Alternative approach: manual extraction when JSON parsing fails
-                logger.warning("JSON parsing failed, attempting manual data extraction...")
-                
-                # Extract individual fields using regex - more robust for malformed JSON
                 import re
                 
-                try:
-                    extracted_data = {}
+                # Try multiple cleanup approaches
+                for attempt in range(1, 5):
+                    logger.info(f"JSON cleanup attempt {attempt}...")
                     
-                    # Extract title
-                    title_match = re.search(r'"title":\s*"([^"]*(?:[^"\\]|\\.)*)"', response)
-                    if title_match:
-                        extracted_data["title"] = title_match.group(1)
+                    if attempt == 1:
+                        # Basic cleanup - fix common escaping issues
+                        fixed_response = response.strip()
+                        # Fix double escaping
+                        fixed_response = re.sub(r'\\\\"', '"', fixed_response)
+                        # Fix unescaped quotes in HTML attributes
+                        fixed_response = re.sub(r'class="([^"]*)"', r"class='\1'", fixed_response)
+                        fixed_response = re.sub(r'language-([^"]*)"', r"language-\1'", fixed_response)
                         
-                    # Extract other simple fields
-                    for field in ["excerpt", "slug", "_yoast_wpseo_title", "_yoast_wpseo_metadesc", "image_caption", "focus_keyword"]:
-                        field_match = re.search(f'"{field}":\\s*"([^"]*(?:[^"\\\\]|\\\\.)*)"', response)
-                        if field_match:
-                            extracted_data[field] = field_match.group(1)
-                    
-                    # Extract categories array
-                    categories_match = re.search(r'"categories":\s*\[(.*?)\]', response, re.DOTALL)
-                    if categories_match:
-                        categories_str = categories_match.group(1)
-                        categories = [cat.strip().strip('"') for cat in categories_str.split(',') if cat.strip()]
-                        extracted_data["categories"] = categories
-                    
-                    # Extract content (most complex field)
-                    # Look for content field and extract everything until the next field or end
-                    content_match = re.search(r'"content":\s*"(.*?)(?=",\s*"[^"]+":|\s*})', response, re.DOTALL)
-                    if content_match:
-                        content = content_match.group(1)
-                        # Basic cleanup of escaped chars we can handle
-                        content = content.replace('\\"', '"').replace('\\n', '\n')
-                        extracted_data["content"] = content
-                        
-                        # Check if content was cleaned (no WordPress tags)
-                        wp_tags = ["<!-- wp:paragraph -->", "<!-- wp:heading -->", "<!-- wp:code -->", "<!-- wp:list -->"]
-                        found_tags = [tag for tag in wp_tags if tag in content]
-                        
-                        if not found_tags:
-                            logger.info("✅ Manual extraction successful - WordPress tags removed!")
+                    elif attempt == 2:
+                        # Try to extract JSON block from response
+                        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+                        if json_match:
+                            fixed_response = json_match.group(0)
                         else:
-                            logger.warning(f"⚠️ Manual extraction found {len(found_tags)} WordPress tags still present")
-                    
-                    if len(extracted_data) >= 6:  # We got most fields
-                        logger.info(f"Manual extraction successful: extracted {len(extracted_data)} fields")
-                        return extracted_data
-                    else:
-                        logger.error(f"Manual extraction incomplete: only got {len(extracted_data)} fields")
+                            continue
+                            
+                    elif attempt == 3:
+                        # Fix incomplete JSON (missing closing braces)
+                        fixed_response = response.strip()
+                        brace_count = fixed_response.count('{') - fixed_response.count('}')
+                        if brace_count > 0:
+                            fixed_response += '}' * brace_count
+                            
+                    elif attempt == 4:
+                        # Last resort: extract JSON fields manually
+                        extracted_data = {}
                         
-                except Exception as extract_err:
-                    logger.error(f"Manual extraction also failed: {extract_err}")
-                
-                # Handle incomplete JSON
-                if cleaned_response.startswith('{') and cleaned_response.count('{') > cleaned_response.count('}'):
-                    brace_count = 0
-                    last_valid_pos = -1
+                        # Extract title
+                        title_match = re.search(r'"title":\s*"([^"]*(?:\\.[^"]*)*)"', response)
+                        if title_match:
+                            extracted_data["title"] = title_match.group(1).replace('\\"', '"')
+                            
+                        # Extract other fields
+                        for field in ["excerpt", "slug", "_yoast_wpseo_title", "_yoast_wpseo_metadesc", "image_caption", "focus_keyword"]:
+                            field_match = re.search(f'"{field}":\s*"([^"]*(?:\\\\.[^"]*)*)"', response)
+                            if field_match:
+                                extracted_data[field] = field_match.group(1).replace('\\"', '"')
+                        
+                        # Extract categories
+                        categories_match = re.search(r'"categories":\s*\[(.*?)\]', response, re.DOTALL)
+                        if categories_match:
+                            categories_str = categories_match.group(1)
+                            categories = [cat.strip().strip('"') for cat in categories_str.split(',') if cat.strip()]
+                            extracted_data["categories"] = categories
+                        
+                        # Extract content (complex)
+                        content_match = re.search(r'"content":\s*"(.*?)(?=",\s*"[^"]+"|$)', response, re.DOTALL)
+                        if content_match:
+                            content = content_match.group(1)
+                            # Basic unescape
+                            content = content.replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t')
+                            extracted_data["content"] = content
+                        
+                        if len(extracted_data) >= 6:
+                            logger.info(f"Manual field extraction successful: {len(extracted_data)} fields")
+                            return extracted_data
+                        else:
+                            continue
                     
-                    for i, char in enumerate(cleaned_response):
-                        if char == '{':
-                            brace_count += 1
-                        elif char == '}':
-                            brace_count -= 1
-                            if brace_count == 0:
-                                last_valid_pos = i
-                                break
-                    
-                    if last_valid_pos > 0:
-                        cleaned_response = cleaned_response[:last_valid_pos + 1]
+                    # Try to parse the fixed response
+                    try:
+                        edited_data = json.loads(fixed_response)
+                        logger.info(f"JSON cleanup attempt {attempt} successful!")
+                        return edited_data
+                    except json.JSONDecodeError:
+                        continue
+                        
+                # All attempts failed
+                logger.error("All JSON cleanup attempts failed")
                 
-                edited_data = json.loads(cleaned_response)
-                logger.info(f"Enhanced JSON parsing successful: {edited_data.get('title', 'No title')}")
-                return edited_data
-                
-            except json.JSONDecodeError as e2:
-                logger.error(f"Enhanced JSON parsing also failed: {e2}")
-                logger.error(f"Response length: {len(response)} characters")
-                logger.error(f"First 300 chars: {response[:300]}")
-                logger.error(f"Last 300 chars: {response[-300:]}")
-                
-                # Fallback: return original data with error notification
-                logger.warning("Returning original WordPress data due to parsing errors")
-                return wordpress_data
+            except Exception as cleanup_err:
+                logger.error(f"JSON cleanup failed: {cleanup_err}")
+            
+            # Final fallback - return error response
+            logger.error(f"Response length: {len(response)} characters")
+            logger.error(f"First 300 chars: {response[:300]}")
+            logger.error(f"Last 300 chars: {response[-300:]}")
+            
+            return {
+                "title": f"Ошибка парсинга JSON: {topic}",
+                "content": f"<p>Не удалось распарсить JSON ответ от редактора после всех попыток очистки. Ответ получен полностью ({len(response)} символов).</p><details><summary>Сырой ответ</summary><pre>{response[:2000]}</pre></details>",
+                "excerpt": "Ошибка парсинга JSON ответа",
+                "slug": "json-parsing-error", 
+                "categories": ["prompts"],
+                "_yoast_wpseo_title": "Ошибка парсинга JSON",
+                "_yoast_wpseo_metadesc": "Произошла ошибка при парсинге JSON ответа от редактора",
+                "image_caption": "Ошибка парсинга JSON",
+                "focus_keyword": "промпты"
+            }
                 
     except Exception as e:
         logger.error(f"Critical error during editorial review: {e}")
-        logger.warning("Returning original WordPress data due to critical error")
-        return wordpress_data
+        return {
+            "title": f"Критическая ошибка: {topic}",
+            "content": f"<p>Критическая ошибка при редактуре: {str(e)}</p>",
+            "excerpt": "Критическая ошибка обработки",
+            "slug": "critical-error",
+            "categories": ["prompts"],
+            "_yoast_wpseo_title": "Критическая ошибка",
+            "_yoast_wpseo_metadesc": "Произошла критическая ошибка при обработке",
+            "image_caption": "Критическая ошибка",
+            "focus_keyword": "ошибка"
+        }

@@ -28,9 +28,108 @@ Study the provided material and, leveraging its knowledge, constraints, and nuan
 
 Selection rubric (internal; do NOT output scores):
 
-1. Clarity & Specificity; 2) Controllability (inputs/placeholders, deterministic formatting, constraints); 3) Completeness (roles, goals, steps, acceptance criteria); 4) Grounding in the material (uses domain facts/edge cases); 5) Reusability & portability; 6) Safety/Robustness (guardrails, failure handling).
+1. **Structural Completeness (RGCSC)**: Role clearly defined, Goal specific and measurable, Context provided, Style/tone specified, Constraints established
+2. **Clarity & Specificity**: Clear instructions and unambiguous language
+3. **Controllability**: inputs/placeholders, deterministic formatting, constraints
+4. **Completeness**: roles, goals, steps, acceptance criteria - all components present
+5. **Grounding in the material**: uses domain facts/edge cases from source
+6. **Reusability & portability**: works across different scenarios
+7. **Safety/Robustness**: guardrails, failure handling, error prevention
 
-Always synthesize prompt with sections: Role, goal, context, style, Constraints. Also variable fields put into {}. 
+Always synthesize prompt with sections: Role, goal, context, style, Constraints. Also variable fields put into {}.
+
+PROMPT ENHANCEMENT REQUIREMENT:
+For each discovered prompt in the source material, analyze its completeness using the RGCSC framework (Role-Goal-Context-Style-Constraints) and enhance it if necessary:
+
+1. **Role Analysis**: If the prompt lacks a clear role definition, add an appropriate one based on the task (e.g., "System: You are a creative content strategist...")
+2. **Goal Analysis**: If the goal is vague or missing, make it specific and measurable (e.g., "Generate 5 distinct video concepts...")
+3. **Context Analysis**: If context is missing, add relevant background information and target audience details
+4. **Style Analysis**: If style/tone is not specified, add appropriate guidance (e.g., "Use a conversational, engaging tone...")
+5. **Constraints Analysis**: If constraints are missing, add practical limitations (format, length, output structure, etc.)
+
+MANDATORY RGCSC ENFORCEMENT:
+EVERY SINGLE extracted prompt MUST contain ALL 5 RGCSC elements. NO EXCEPTIONS.
+
+REQUIRED STRUCTURE FOR EVERY PROMPT:
+- Role: "System: You are a [specific role]..." (must be domain-specific)
+- Goal: Clear, measurable objective with specific deliverables (e.g., "Generate 5 distinct...")
+- Context: Target audience, platform, use case details (e.g., "for {platform} targeting {audience}")
+- Style: Explicit tone/manner instructions (e.g., "Style: Use a professional, engaging tone...")
+- Constraints: Clear limitations and formatting requirements (e.g., "Constraints: Format as numbered list...")
+
+CRITICAL: If ANY extracted prompt lacks ANY of these 5 elements, you MUST enhance it by adding the missing components. NO prompt should be output without complete RGCSC structure.
+
+ENHANCEMENT PROCESS - ZERO TOLERANCE POLICY:
+- First extract the raw prompt from source material
+- Check EACH of the 5 RGCSC elements systematically
+- If ANY element is missing or vague, ADD it immediately
+- ALL prompts must reach 100% RGCSC completeness before output
+- NO prompt should be output without complete RGCSC structure
+- Ensure the enhanced prompt is self-contained and immediately usable
+
+ENHANCEMENT EXAMPLES:
+
+**BEFORE (incomplete prompt):**
+"Create video ideas for social media"
+
+**AFTER (enhanced with RGCSC):**
+"System: You are a social media content strategist specializing in video marketing.
+User: Generate 5 creative video content ideas for {platform} that will engage {target_audience}. 
+For each idea, provide:
+1. Concept overview (2-3 sentences)
+2. Key visual elements to include
+3. Suggested duration and posting time
+4. Expected engagement type (comments, shares, saves)
+
+Style: Use an enthusiastic yet professional tone. Format as a numbered list.
+Constraints: Each idea must be executable with a smartphone and basic editing software."
+
+**BEFORE (vague prompt):**
+"Help me brainstorm content"
+
+**AFTER (enhanced with RGCSC):**
+"System: You are a creative brainstorming assistant specialized in {content_type}.
+User: I need help generating {number} innovative content concepts for {topic/industry}. My target audience is {audience_description} and my goal is {specific_outcome}.
+Provide each concept with:
+- Clear title and hook
+- Main value proposition
+- Content structure outline
+- Distribution strategy
+
+Style: Be creative but practical. Use bullet points for clarity.
+Constraints: All concepts must be achievable within {timeframe} and {budget} limitations."
+
+QUALITY CONTROL CHECKLIST:
+Before outputting EACH prompt, verify:
+✓ Has explicit Role definition starting with "System: You are..."?
+✓ Has specific, measurable Goal with clear deliverables?
+✓ Has Context (audience, platform, background details)?
+✓ Has Style instructions (tone, manner, format preference)?
+✓ Has Constraints (limitations, format, structure requirements)?
+
+If ANY checkbox is unchecked, the prompt is INCOMPLETE and must be enhanced immediately.
+
+COMMON ENHANCEMENT FAILURES TO AVOID:
+
+❌ WRONG (incomplete):
+"System: You are a content strategist.
+User: Suggest 5 video ideas for contractors."
+
+✅ CORRECT (complete RGCSC):
+"System: You are a content strategist specializing in video marketing for construction businesses.
+User: Generate 5 video content ideas for {platform} that showcase contractor expertise and attract homeowner clients. For each idea, provide a concept overview and primary viewer benefit.
+Style: Use a professional, authoritative tone that builds trust.
+Constraints: Ideas must be feasible for small contractors with basic equipment and target local homeowners."
+
+❌ WRONG (missing Style and Constraints):
+"System: You are an AI assistant.
+User: Help me brainstorm content for my channel."
+
+✅ CORRECT (complete RGCSC):
+"System: You are a creative content strategist specializing in video marketing.
+User: Generate 10 creative video ideas for my {niche} channel targeting {audience}. Include titles, concepts, and key visual elements.
+Style: Use an enthusiastic, creative tone. Format as numbered list.
+Constraints: Each idea must be feasible for solo creators with basic equipment."
 
 Merging rule:
 
@@ -81,3 +180,13 @@ EXTRACTION FILTER:
 - Discard any prompts about unrelated topics
 - If the article contains no relevant prompts about "{topic}", return an empty array []
 - Focus on practical, actionable prompts that users would find valuable for "{topic}"
+
+FINAL VALIDATION:
+Before outputting the JSON array, ensure EVERY prompt contains:
+1. "System: You are..." (Role) - specific domain expertise
+2. Specific goal with measurable outputs (Goal) - clear deliverables
+3. Audience/platform details (Context) - target users and use case
+4. "Style:" section with tone guidance (Style) - explicit tone instructions
+5. "Constraints:" section with limitations (Constraints) - format and restrictions
+
+If even ONE prompt lacks ANY element, return to enhancement phase and complete the RGCSC structure.

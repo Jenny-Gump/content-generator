@@ -197,8 +197,9 @@ The main pipeline for WordPress article generation.
         
     # --- Этап 8: Editorial Review ---
     logger.info("Starting editorial review and cleanup...")
+    raw_response = wordpress_data.get("raw_response", "")
     wordpress_data_final = editorial_review(
-        wordpress_data=wordpress_data,
+        raw_response=raw_response,
         topic=topic,
         base_path=paths["editorial_review"],
         token_tracker=token_tracker,
