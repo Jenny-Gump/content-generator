@@ -2,9 +2,16 @@
 
 This project can be customized through the `.env` file, the `src/config.py` file, and the JSON files in the `filters/` directory.
 
-## 🆕 Enhanced LLM Configuration (January 2025)
+## 🆕 Flexible Model Configuration (September 2025)
 
-With the addition of LLM processing stages (7-10), you now have access to:
+### **Per-Function Model Selection**
+The system now supports configurable models for each LLM function:
+- **Extract Prompts**: Configurable model for prompt extraction from articles
+- **Generate Article**: Configurable model for WordPress article generation
+- **Easy Model Switching**: Change models per function without code changes
+- **Backward Compatibility**: All functions default to `deepseek-reasoner`
+
+### **Previous Enhancements (January 2025)**
 - **DeepSeek API integration** for prompt extraction, ranking, and enrichment
 - **Full request/response logging** for debugging LLM interactions
 - **Robust JSON parsing** with multiple fallback strategies
@@ -34,6 +41,39 @@ This file contains all the operational parameters for the pipeline.
 
 -   **`TOP_N_SOURCES`**: The number of top-ranked articles to select for the final cleaning stage.
     -   *Default: `5`*
+
+### **🆕 LLM Models Configuration**
+
+-   **`LLM_MODELS`**: Dictionary mapping pipeline stages to their respective models.
+    ```python
+    LLM_MODELS = {
+        "extract_prompts": "deepseek-reasoner",      # Model for prompt extraction
+        "generate_article": "deepseek-reasoner",    # Model for article generation
+    }
+    ```
+    
+-   **`DEFAULT_MODEL`**: Fallback model used when no specific model is configured for a stage.
+    -   *Default: `"deepseek-reasoner"`*
+
+#### **How to Change Models for Different Functions:**
+
+**Example 1: Use different models for different tasks**
+```python
+LLM_MODELS = {
+    "extract_prompts": "deepseek-chat",          # Faster model for extraction
+    "generate_article": "deepseek-reasoner",    # More powerful model for generation
+}
+```
+
+**Example 2: Use GPT-4 for article generation** (requires OpenAI-compatible setup)
+```python
+LLM_MODELS = {
+    "extract_prompts": "deepseek-reasoner",
+    "generate_article": "gpt-4-turbo",         # Different model for final article
+}
+```
+
+**Note**: Changing models requires compatible API endpoints. Current setup supports DeepSeek API. For other providers, you may need to modify the client configuration in `src/llm_processing.py`.
 
 ### Scoring Weights
 

@@ -18,6 +18,7 @@ from src.llm_processing import (
     generate_wordpress_article,
 )
 from src.token_tracker import TokenTracker
+from src.config import LLM_MODELS
 
 def sanitize_filename(topic):
     """Sanitizes the topic to be used as a valid directory name."""
@@ -114,7 +115,8 @@ The main pipeline for WordPress article generation.
             topic=topic, 
             base_path=paths["extraction"],
             source_id=source_id,
-            token_tracker=token_tracker
+            token_tracker=token_tracker,
+            model_name=LLM_MODELS.get("extract_prompts")
         )
         all_prompts.extend(prompts)
     save_artifact(all_prompts, paths["extraction"], "all_prompts.json")
@@ -129,7 +131,8 @@ The main pipeline for WordPress article generation.
         prompts=all_prompts, 
         topic=topic, 
         base_path=paths["final_article"],
-        token_tracker=token_tracker
+        token_tracker=token_tracker,
+        model_name=LLM_MODELS.get("generate_article")
     )
     
     # Сохраняем полную JSON структуру

@@ -36,3 +36,13 @@ DEPTH_SCORE_WEIGHT = 0.2
 
 # --- Selection ---
 TOP_N_SOURCES = 5
+
+# --- LLM Models Configuration ---
+# Models for different pipeline stages
+LLM_MODELS = {
+    "extract_prompts": "deepseek-reasoner",      # Model for prompt extraction from articles
+    "generate_article": "deepseek-reasoner",    # Model for WordPress article generation
+}
+
+# Default model if no specific model is configured
+DEFAULT_MODEL = "deepseek-reasoner"

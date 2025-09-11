@@ -4,6 +4,12 @@ This project is an automated pipeline for generating high-quality content based 
 
 ## Latest Updates (September 2025)
 
+### 🎛️ Flexible Model Configuration System
+- **Per-Function Model Selection**: Configure different models for each LLM function
+- **Easy Model Switching**: Change models through config file without code changes
+- **Backward Compatibility**: All functions default to `deepseek-reasoner`
+- **Extensible Architecture**: Ready for new functions with their own model preferences
+
 ### 💰 Token Tracking System
 - **Comprehensive Token Monitoring**: Track token usage for every LLM request with detailed breakdowns
 - **Session Summaries**: Automatic generation of token usage reports per pipeline run

@@ -8,11 +8,11 @@ import openai
 
 from src.logger_config import logger
 from src.token_tracker import TokenTracker
+from src.config import LLM_MODELS, DEFAULT_MODEL
 
 # Загружаем переменные среды
 load_dotenv()
 
-DEEPSEEK_MODEL = "deepseek-reasoner" 
 # Используем OpenAI-совместимый клиент как в AI News проекте
 client = openai.OpenAI(
     api_key=os.getenv('DEEPSEEK_API_KEY'),
@@ -51,7 +51,7 @@ def save_llm_interaction(base_path: str, stage_name: str, messages: List[Dict],
         request_data = {
             "timestamp": datetime.now().isoformat(),
             "stage": stage_name,
-            "model": DEEPSEEK_MODEL,
+            "model": extra_params.get("model", DEFAULT_MODEL) if extra_params else DEFAULT_MODEL,
             "messages": messages,
             "extra_params": extra_params or {}
         }
@@ -182,8 +182,18 @@ def _load_and_prepare_messages(article_type: str, prompt_name: str, replacements
         raise
 
 def extract_prompts_from_article(article_text: str, topic: str, base_path: str = None, 
-                                 source_id: str = None, token_tracker: TokenTracker = None) -> List[Dict]:
-    """Extracts structured prompt data from a single article text."""
+                                 source_id: str = None, token_tracker: TokenTracker = None,
+                                 model_name: str = None) -> List[Dict]:
+    """Extracts structured prompt data from a single article text.
+    
+    Args:
+        article_text: The text content to extract prompts from
+        topic: The topic for context
+        base_path: Path to save LLM interactions
+        source_id: Identifier for the source
+        token_tracker: Token usage tracker
+        model_name: Override model name (uses config default if None)
+    """
     logger.info("Extracting prompts from one article...")
     try:
         messages = _load_and_prepare_messages(
@@ -191,8 +201,11 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
             "01_extract", 
             {"topic": topic, "article_text": article_text}
         )
+        # Use provided model or default from config
+        model_to_use = model_name or LLM_MODELS.get("extract_prompts", DEFAULT_MODEL)
+        
         response = client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
+            model=model_to_use,
             messages=messages,
             temperature=0.3,
             timeout=90
@@ -205,7 +218,7 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
                 stage="extract_prompts",
                 usage=response.usage,
                 source_id=source_id,
-                extra_metadata={"topic": topic, "model": DEEPSEEK_MODEL}
+                extra_metadata={"topic": topic, "model": model_to_use}
             )
         
         # Сохраняем запрос и ответ для отладки
@@ -216,7 +229,7 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
                 messages=messages,
                 response=content,
                 request_id=source_id or "single",
-                extra_params={"response_format": "json_object", "topic": topic}
+                extra_params={"response_format": "json_object", "topic": topic, "model": model_to_use}
             )
         
         parsed_json = _parse_json_from_response(content)
@@ -232,8 +245,16 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
 
 
 def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str = None, 
-                              token_tracker: TokenTracker = None) -> Dict[str, Any]:
-    """Generates a WordPress-ready article from collected prompts."""
+                              token_tracker: TokenTracker = None, model_name: str = None) -> Dict[str, Any]:
+    """Generates a WordPress-ready article from collected prompts.
+    
+    Args:
+        prompts: List of collected prompts to use for article generation
+        topic: The topic for the article
+        base_path: Path to save LLM interactions
+        token_tracker: Token usage tracker
+        model_name: Override model name (uses config default if None)
+    """
     logger.info("Generating WordPress article from collected prompts...")
     try:
         messages = _load_and_prepare_messages(
@@ -241,8 +262,11 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
             "01_generate_wordpress_article",
             {"topic": topic, "prompts_json": json.dumps(prompts, indent=2)}
         )
+        # Use provided model or default from config
+        model_to_use = model_name or LLM_MODELS.get("generate_article", DEFAULT_MODEL)
+        
         response_obj = client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
+            model=model_to_use,
             messages=messages,
             temperature=0.3,
             timeout=300,  # Increased timeout to 5 minutes
@@ -258,7 +282,7 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
                 extra_metadata={
                     "topic": topic, 
                     "input_prompts_count": len(prompts),
-                    "model": DEEPSEEK_MODEL
+                    "model": model_to_use
                 }
             )
         
@@ -273,7 +297,8 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
                     "topic": topic, 
                     "input_prompts_count": len(prompts),
                     "purpose": "generate_wordpress_article",
-                    "response_format": "json_object"
+                    "response_format": "json_object",
+                    "model": model_to_use
                 }
             )
         
