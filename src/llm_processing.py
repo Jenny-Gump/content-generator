@@ -8,16 +8,44 @@ import openai
 
 from src.logger_config import logger
 from src.token_tracker import TokenTracker
-from src.config import LLM_MODELS, DEFAULT_MODEL
+from src.config import LLM_MODELS, DEFAULT_MODEL, LLM_PROVIDERS, get_provider_for_model
 
 # Загружаем переменные среды
 load_dotenv()
 
-# Используем OpenAI-совместимый клиент как в AI News проекте
-client = openai.OpenAI(
-    api_key=os.getenv('DEEPSEEK_API_KEY'),
-    base_url="https://api.deepseek.com"
-)
+# Словарь для кэширования клиентов
+_clients_cache = {}
+
+def get_llm_client(model_name: str) -> openai.OpenAI:
+    """Get appropriate LLM client for the given model."""
+    provider = get_provider_for_model(model_name)
+    
+    # Return cached client if available
+    if provider in _clients_cache:
+        return _clients_cache[provider]
+    
+    provider_config = LLM_PROVIDERS[provider]
+    api_key = os.getenv(provider_config["api_key_env"])
+    
+    if not api_key:
+        raise ValueError(f"API key not found for provider {provider}. Check {provider_config['api_key_env']} in .env")
+    
+    # Create client with provider-specific configuration
+    client_kwargs = {
+        "api_key": api_key,
+        "base_url": provider_config["base_url"]
+    }
+    
+    # Add extra headers for OpenRouter
+    if "extra_headers" in provider_config:
+        client_kwargs["default_headers"] = provider_config["extra_headers"]
+    
+    client = openai.OpenAI(**client_kwargs)
+    
+    # Cache the client
+    _clients_cache[provider] = client
+    
+    return client
 
 def save_llm_interaction(base_path: str, stage_name: str, messages: List[Dict], 
                          response: str, request_id: str = None, extra_params: Dict = None):
@@ -203,6 +231,7 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
         )
         # Use provided model or default from config
         model_to_use = model_name or LLM_MODELS.get("extract_prompts", DEFAULT_MODEL)
+        client = get_llm_client(model_to_use)
         
         response = client.chat.completions.create(
             model=model_to_use,
@@ -214,11 +243,16 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
         
         # Track token usage
         if token_tracker and response.usage:
+            provider = get_provider_for_model(model_to_use)
             token_tracker.add_usage(
                 stage="extract_prompts",
                 usage=response.usage,
                 source_id=source_id,
-                extra_metadata={"topic": topic, "model": model_to_use}
+                extra_metadata={
+                    "topic": topic, 
+                    "model": model_to_use,
+                    "provider": provider
+                }
             )
         
         # Сохраняем запрос и ответ для отладки
@@ -264,6 +298,7 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
         )
         # Use provided model or default from config
         model_to_use = model_name or LLM_MODELS.get("generate_article", DEFAULT_MODEL)
+        client = get_llm_client(model_to_use)
         
         response_obj = client.chat.completions.create(
             model=model_to_use,
@@ -276,13 +311,15 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
         
         # Track token usage
         if token_tracker and response_obj.usage:
+            provider = get_provider_for_model(model_to_use)
             token_tracker.add_usage(
                 stage="generate_wordpress_article",
                 usage=response_obj.usage,
                 extra_metadata={
                     "topic": topic, 
                     "input_prompts_count": len(prompts),
-                    "model": model_to_use
+                    "model": model_to_use,
+                    "provider": provider
                 }
             )
         

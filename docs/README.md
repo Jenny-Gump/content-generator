@@ -4,11 +4,17 @@ This project is an automated pipeline for generating high-quality content based 
 
 ## Latest Updates (September 2025)
 
-### 🎛️ Flexible Model Configuration System
-- **Per-Function Model Selection**: Configure different models for each LLM function
-- **Easy Model Switching**: Change models through config file without code changes
+### 🎛️ Flexible Multi-Provider Model System
+- **Multiple LLM Providers**: Support for DeepSeek and OpenAI (via OpenRouter)
+- **Command Line Model Selection**: Override models with `--extract-model` and `--generate-model` flags
+- **Per-Function Configuration**: Different models for extraction vs generation tasks
+- **Easy Provider Switching**: Automatic client selection based on model choice
 - **Backward Compatibility**: All functions default to `deepseek-reasoner`
-- **Extensible Architecture**: Ready for new functions with their own model preferences
+
+### 🔗 OpenRouter Integration
+- **OpenAI Models**: Access to GPT-4o, GPT-4o-mini, GPT-4-turbo via OpenRouter
+- **Cost Optimization**: Automatic routing and fallback through OpenRouter
+- **Simple Setup**: Just add OPENROUTER_API_KEY to use OpenAI models
 
 ### 💰 Token Tracking System
 - **Comprehensive Token Monitoring**: Track token usage for every LLM request with detailed breakdowns
@@ -47,19 +53,27 @@ This project is an automated pipeline for generating high-quality content based 
     pip install -r requirements.txt
     ```
 
-2.  **Set API Key:**
-    -   Copy your Firecrawl API key into the `.env` file:
+2.  **Set API Keys:**
+    -   Copy your API keys into the `.env` file:
         ```
-        FIRECRAWL_API_KEY=your_api_key_here
+        FIRECRAWL_API_KEY=your_firecrawl_key_here
+        DEEPSEEK_API_KEY=your_deepseek_key_here
+        OPENROUTER_API_KEY=your_openrouter_key_here  # Optional for OpenAI models
         ```
 
 3.  **Run the Pipeline:**
     ```bash
-    # Full pipeline (all 10 stages)
+    # Default pipeline (DeepSeek for all tasks)
     python main.py "Your topic of interest"
     
-    # Stop at specific stage for debugging
-    python main.py "Your topic of interest" --stage 7
+    # Use OpenAI GPT-4o-mini for article generation
+    python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
+    
+    # Use different models for different tasks
+    python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o"
+    
+    # See all available options
+    python main.py --help
     ```
 
 4.  **Find the Results:**

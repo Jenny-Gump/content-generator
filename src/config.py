@@ -46,3 +46,38 @@ LLM_MODELS = {
 
 # Default model if no specific model is configured
 DEFAULT_MODEL = "deepseek-reasoner"
+
+# --- LLM Providers Configuration ---
+LLM_PROVIDERS = {
+    "deepseek": {
+        "base_url": "https://api.deepseek.com",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "models": [
+            "deepseek-reasoner", 
+            "deepseek-chat"
+        ]
+    },
+    "openrouter": {
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key_env": "OPENROUTER_API_KEY", 
+        "models": [
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "openai/gpt-4-turbo",
+            "openai/gpt-3.5-turbo"
+        ],
+        "extra_headers": {
+            "HTTP-Referer": "https://github.com/your-repo/content-generator",
+            "X-Title": "AI Content Generator"
+        }
+    }
+}
+
+# Model to provider mapping
+def get_provider_for_model(model_name: str) -> str:
+    """Get the provider name for a given model."""
+    for provider, config in LLM_PROVIDERS.items():
+        if model_name in config["models"]:
+            return provider
+    # Default to deepseek for unknown models
+    return "deepseek"

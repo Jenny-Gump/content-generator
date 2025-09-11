@@ -35,14 +35,26 @@ def save_artifact(data, path, filename):
             json.dump(data, f, indent=4, ensure_ascii=False)
     logger.info(f"Saved artifact to {filepath}")
 
-async def main_flow(topic: str):
+async def main_flow(topic: str, model_overrides: dict = None):
     """
 The main pipeline for WordPress article generation.
+    
+    Args:
+        topic: The topic for content generation
+        model_overrides: Dictionary to override default models for specific stages
     """
     logger.info(f"--- Starting Content Generation Pipeline for topic: '{topic}' ---")
     
     # Initialize token tracker
     token_tracker = TokenTracker(topic=topic)
+    
+    # Prepare model configuration with overrides
+    model_overrides = model_overrides or {}
+    from src.config import LLM_MODELS
+    active_models = {**LLM_MODELS, **model_overrides}
+    
+    if model_overrides:
+        logger.info(f"Using model overrides: {model_overrides}")
 
     # --- Setup Directories ---
     sanitized_topic = sanitize_filename(topic)
@@ -116,7 +128,7 @@ The main pipeline for WordPress article generation.
             base_path=paths["extraction"],
             source_id=source_id,
             token_tracker=token_tracker,
-            model_name=LLM_MODELS.get("extract_prompts")
+            model_name=active_models.get("extract_prompts")
         )
         all_prompts.extend(prompts)
     save_artifact(all_prompts, paths["extraction"], "all_prompts.json")
@@ -132,7 +144,7 @@ The main pipeline for WordPress article generation.
         topic=topic, 
         base_path=paths["final_article"],
         token_tracker=token_tracker,
-        model_name=LLM_MODELS.get("generate_article")
+        model_name=active_models.get("generate_article")
     )
     
     # Сохраняем полную JSON структуру
@@ -160,6 +172,17 @@ The main pipeline for WordPress article generation.
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AI Content Generation Pipeline for WordPress")
     parser.add_argument("topic", type=str, help="The topic for content generation.")
+    parser.add_argument("--extract-model", type=str, help="Model for prompt extraction (overrides config)")
+    parser.add_argument("--generate-model", type=str, help="Model for article generation (overrides config)")
+    parser.add_argument("--provider", type=str, choices=["deepseek", "openrouter"], 
+                       help="LLM provider (deepseek or openrouter)")
     args = parser.parse_args()
 
-    asyncio.run(main_flow(args.topic))
+    # Override config with command line arguments
+    override_models = {}
+    if args.extract_model:
+        override_models["extract_prompts"] = args.extract_model
+    if args.generate_model:
+        override_models["generate_article"] = args.generate_model
+
+    asyncio.run(main_flow(args.topic, model_overrides=override_models))

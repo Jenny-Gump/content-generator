@@ -19,15 +19,19 @@ The system now supports configurable models for each LLM function:
 
 ## API Keys (`.env`)
 
-This file stores the essential API keys for both Firecrawl and DeepSeek services.
+This file stores the essential API keys for Firecrawl, DeepSeek, and OpenRouter services.
 
 -   **`FIRECRAWL_API_KEY`**: Your unique API key from Firecrawl for search and scraping operations.
--   **`DEEPSEEK_API_KEY`**: Your API key for DeepSeek LLM service (stages 7-10).
+-   **`DEEPSEEK_API_KEY`**: Your API key for DeepSeek LLM service (default provider).
+-   **`OPENROUTER_API_KEY`**: Your OpenRouter API key for accessing OpenAI models (GPT-4o, GPT-4o-mini, etc.).
 
 ```
 FIRECRAWL_API_KEY=fc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx
 ```
+
+**Note**: OPENROUTER_API_KEY is only required if you plan to use OpenAI models via OpenRouter.
 
 ## Main Configuration (`src/config.py`)
 
@@ -57,7 +61,7 @@ This file contains all the operational parameters for the pipeline.
 
 #### **How to Change Models for Different Functions:**
 
-**Example 1: Use different models for different tasks**
+**Example 1: Use different DeepSeek models**
 ```python
 LLM_MODELS = {
     "extract_prompts": "deepseek-chat",          # Faster model for extraction
@@ -65,15 +69,50 @@ LLM_MODELS = {
 }
 ```
 
-**Example 2: Use GPT-4 for article generation** (requires OpenAI-compatible setup)
+**Example 2: Mix DeepSeek and OpenAI models**
 ```python
 LLM_MODELS = {
-    "extract_prompts": "deepseek-reasoner",
-    "generate_article": "gpt-4-turbo",         # Different model for final article
+    "extract_prompts": "deepseek-reasoner",     # DeepSeek for extraction
+    "generate_article": "openai/gpt-4o-mini",  # OpenAI for generation via OpenRouter
 }
 ```
 
-**Note**: Changing models requires compatible API endpoints. Current setup supports DeepSeek API. For other providers, you may need to modify the client configuration in `src/llm_processing.py`.
+**Example 3: Full OpenAI setup**
+```python
+LLM_MODELS = {
+    "extract_prompts": "openai/gpt-4o-mini",    # Fast OpenAI model for extraction
+    "generate_article": "openai/gpt-4o",       # Premium OpenAI model for generation
+}
+```
+
+### **🚀 Command Line Overrides**
+
+You can override any model configuration using command line flags:
+
+```bash
+# Use OpenAI GPT-4o-mini for article generation only
+python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
+
+# Use different models for each stage
+python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o"
+
+# See all available options
+python main.py --help
+```
+
+### **Available Models**
+
+**DeepSeek Models:**
+- `deepseek-reasoner` - Most capable DeepSeek model with reasoning
+- `deepseek-chat` - Faster DeepSeek model for quick tasks
+
+**OpenAI Models (via OpenRouter):**
+- `openai/gpt-4o` - Latest GPT-4 Omni model
+- `openai/gpt-4o-mini` - Smaller, faster GPT-4 Omni
+- `openai/gpt-4-turbo` - GPT-4 Turbo model  
+- `openai/gpt-3.5-turbo` - Fast and cost-effective
+
+**Note**: OpenAI models require OPENROUTER_API_KEY in your .env file.
 
 ### Scoring Weights
 
