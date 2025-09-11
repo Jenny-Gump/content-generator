@@ -164,18 +164,34 @@ class WordPressPublisher:
                     self.config['wordpress_app_password']
                 )
                 
-                params = {'search': category_name, 'per_page': 10}
+                params = {'search': category_name, 'per_page': 100}
                 response = requests.get(url, auth=auth, params=params, timeout=30)
                 
                 if response.status_code == 200:
                     categories = response.json()
                     for cat in categories:
-                        if cat['name'].lower() == category_name.lower():
+                        # Match by name or slug
+                        if (cat['name'].lower() == category_name.lower() or 
+                            cat['slug'].lower() == category_name.lower()):
                             category_ids.append(cat['id'])
                             logger.info(f"Found category '{category_name}' with ID {cat['id']}")
                             break
                     else:
-                        logger.warning(f"Category '{category_name}' not found, skipping")
+                        # If search didn't work, try getting all categories
+                        all_categories_response = requests.get(f"{self.config['wordpress_api_url']}/categories", 
+                                                             auth=auth, params={'per_page': 100}, timeout=30)
+                        if all_categories_response.status_code == 200:
+                            all_categories = all_categories_response.json()
+                            for cat in all_categories:
+                                if (cat['name'].lower() == category_name.lower() or 
+                                    cat['slug'].lower() == category_name.lower()):
+                                    category_ids.append(cat['id'])
+                                    logger.info(f"Found category '{category_name}' with ID {cat['id']} (fallback search)")
+                                    break
+                            else:
+                                logger.warning(f"Category '{category_name}' not found, skipping")
+                        else:
+                            logger.warning(f"Category '{category_name}' not found, skipping")
                 else:
                     logger.error(f"Failed to fetch categories: {response.status_code}")
                     
@@ -289,10 +305,12 @@ class WordPressPublisher:
                 timeout=30
             )
             
-            if response.status_code == 201:
+            if response.status_code in [200, 201]:
                 result = response.json()
-                logger.info(f"Post created successfully via custom endpoint: {result.get('id')}")
-                return result.get('id')
+                # Handle different response formats
+                post_id = result.get('post_id') or result.get('id')
+                logger.info(f"Post created successfully via custom endpoint: {post_id}")
+                return post_id
             else:
                 logger.error(f"Custom endpoint error: {response.status_code} - {response.text}")
                 return None
