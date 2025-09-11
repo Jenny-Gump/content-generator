@@ -1,12 +1,14 @@
 # LLM Debugging Guide
 
-This guide explains how to use the enhanced LLM logging features added in January 2025 to debug and optimize the content generation pipeline.
+This guide explains how to use the enhanced LLM logging and debugging features, including the multi-provider system (September 2025) and original debugging features (January 2025).
 
 ## Overview
 
-Every interaction with the DeepSeek API is automatically logged with full transparency:
-- ✅ **Request logging**: Complete prompts, parameters, timestamps
-- ✅ **Response logging**: Raw LLM outputs before JSON parsing  
+Every interaction with LLM providers (DeepSeek, OpenRouter) is automatically logged with full transparency:
+- ✅ **Request logging**: Complete prompts, parameters, timestamps  
+- ✅ **Response logging**: Raw LLM outputs before JSON parsing
+- ✅ **Provider tracking**: Which provider/model was used for each request
+- ✅ **Token monitoring**: Detailed usage breakdown including reasoning tokens
 - ✅ **Error context**: Failed parsing attempts with detailed error messages
 - ✅ **Metadata tracking**: Stage identification, request IDs, model settings
 
@@ -16,39 +18,24 @@ When you run the pipeline, LLM logs are saved alongside results:
 
 ```
 output/Your_Topic/
-├── 06_extracted_prompts/           # Stage 7: Extract prompts from articles
-│   ├── all_prompts.json           # 📊 Final processed results
-│   ├── llm_requests/              # 🔍 What was sent to LLM
-│   │   ├── source_1_request.json  # Request for first article
-│   │   ├── source_2_request.json  # Request for second article  
+├── token_usage_report.json       # 🆕 Multi-provider token analytics
+├── 06_extracted_prompts/         # Stage: Extract prompts from articles
+│   ├── all_prompts.json          # 📊 Final processed results
+│   ├── llm_requests/             # 🔍 What was sent to LLM
+│   │   ├── source_1_request.json # Request for first article (includes provider info)
+│   │   ├── source_2_request.json # Request for second article  
 │   │   └── ...
-│   └── llm_responses_raw/         # 🔍 What LLM actually returned
-│       ├── source_1_response.txt  # Raw response from LLM
+│   └── llm_responses_raw/        # 🔍 What LLM actually returned
+│       ├── source_1_response.txt # Raw response from LLM provider
 │       ├── source_2_response.txt
 │       └── ...
-├── 07_ranked_prompts/             # Stage 8: Rank and select prompts
-│   ├── best_prompts.json          # 📊 Final ranked results
-│   ├── llm_requests/
-│   │   └── rank_prompts_request.json
-│   └── llm_responses_raw/
-│       └── rank_prompts_response.txt
-├── 08_enriched_prompts/           # Stage 9: Generate examples & commentary
-│   ├── enriched_prompts.json      # 📊 Final enriched results
-│   ├── llm_requests/              # 🔍 2 requests per prompt
-│   │   ├── prompt_1_example_request.json
-│   │   ├── prompt_1_commentary_request.json
-│   │   ├── prompt_2_example_request.json
-│   │   └── ...
-│   └── llm_responses_raw/
-│       ├── prompt_1_example_response.txt
-│       ├── prompt_1_commentary_response.txt
-│       └── ...
-└── 09_final_article/             # Stage 10: Assemble final article
-    ├── final_article.md           # 📊 Final article
-    ├── llm_requests/
-    │   └── assemble_article_request.json
-    └── llm_responses_raw/
-        └── assemble_article_response.txt
+└── 07_final_article/             # Stage: Generate WordPress article  
+    ├── wordpress_data.json       # 📊 Complete WordPress data structure
+    ├── article_content.html      # 📄 Generated article HTML
+    ├── llm_requests/             # 🔍 Article generation requests
+    │   └── generate_wordpress_article_request.json
+    └── llm_responses_raw/        # 🔍 Article generation responses
+        └── generate_wordpress_article_response.txt
 ```
 
 ## Request Log Format
@@ -57,9 +44,9 @@ Each `*_request.json` file contains:
 
 ```json
 {
-  "timestamp": "2025-01-15T10:30:45.123456",
+  "timestamp": "2025-09-11T10:30:45.123456",
   "stage": "extract_prompts",
-  "model": "deepseek-reasoner",
+  "model": "openai/gpt-4o-mini",
   "messages": [
     {
       "role": "system", 
@@ -72,8 +59,8 @@ Each `*_request.json` file contains:
   ],
   "extra_params": {
     "response_format": "json_object",
-    "topic": "Best prompts for analysis",
-    "max_tokens": 200
+    "topic": "Best prompts for analysis", 
+    "model": "openai/gpt-4o-mini"
   }
 }
 ```
@@ -90,6 +77,54 @@ Each `*_response.txt` file contains the raw LLM output exactly as received:
     "how_to_improve": "Add specific metrics to track (e.g., 'Calculate growth percentages' and 'Rank segments by revenue contribution') and specify desired output format."
 }
 ```
+
+## 🆕 Token Usage Analytics (September 2025)
+
+The `token_usage_report.json` file provides detailed analytics for multi-provider token usage:
+
+```json
+{
+  "session_summary": {
+    "total_requests": 6,
+    "total_prompt_tokens": 25420,
+    "total_completion_tokens": 8943,
+    "total_tokens": 34363,
+    "total_reasoning_tokens": 5791,
+    "session_duration_minutes": 8.5
+  },
+  "stage_breakdown": {
+    "extract_prompts": {
+      "requests": 5,
+      "total_tokens": 23125,
+      "reasoning_tokens": 4634
+    },
+    "generate_wordpress_article": {
+      "requests": 1, 
+      "total_tokens": 11238,
+      "reasoning_tokens": 1157
+    }
+  },
+  "detailed_breakdown": [
+    {
+      "timestamp": "2025-09-11T10:30:45.123456",
+      "stage": "extract_prompts",
+      "model": "deepseek-reasoner",
+      "provider": "deepseek",
+      "prompt_tokens": 2768,
+      "completion_tokens": 2041,
+      "reasoning_tokens": 1390,
+      "total_tokens": 4809
+    }
+  ]
+}
+```
+
+**Key metrics tracked:**
+- **Total tokens**: Across all requests and providers
+- **Reasoning tokens**: DeepSeek-specific reasoning token usage
+- **Provider breakdown**: Usage by DeepSeek vs OpenRouter
+- **Stage analytics**: Token consumption by pipeline stage
+- **Performance data**: Session duration and average tokens per request
 
 ## Common Debugging Scenarios
 

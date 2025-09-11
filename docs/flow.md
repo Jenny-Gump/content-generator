@@ -4,6 +4,32 @@ This document provides a detailed, step-by-step breakdown of the simplified cont
 
 **MAJOR UPDATE**: The pipeline has been significantly simplified to focus on WordPress article generation for prompt collections. We now have a streamlined 7-stage process that ends with a complete WordPress-ready article.
 
+## 🎛️ Multi-Provider LLM System (September 2025)
+
+Major architectural upgrade for flexible model selection and provider support:
+
+### **Multi-Provider Architecture**
+- **DeepSeek Provider**: Primary provider with reasoning capabilities (`deepseek-reasoner`, `deepseek-chat`)
+- **OpenRouter Provider**: Gateway to OpenAI models (`openai/gpt-4o`, `openai/gpt-4o-mini`, etc.)
+- **Dynamic Client Selection**: Automatic provider detection based on model name
+- **Cached Client Management**: Performance-optimized client reuse
+
+### **Command Line Model Override**
+- **`--extract-model`**: Override model for prompt extraction stage
+- **`--generate-model`**: Override model for article generation stage
+- **Real-time Logging**: Model overrides are logged during pipeline execution
+
+### **Enhanced Token Tracking**
+- **Provider Metadata**: Track which provider/model was used for each request
+- **Multi-Provider Reports**: Token usage breakdown by provider in session summaries
+- **Model-Specific Analytics**: Detailed usage statistics per model type
+
+**Benefits**:
+- 🎯 **Task-Optimized Models**: Use fast models for extraction, powerful models for generation
+- 💰 **Cost Control**: Mix free DeepSeek models with paid OpenAI models strategically
+- ⚡ **Performance Tuning**: Choose optimal speed/quality tradeoff for each stage
+- 📊 **Comprehensive Tracking**: Full visibility into multi-provider token usage
+
 ## 🔧 Content Cleaning Optimization (September 2025)
 
 Major improvements to content cleaning pipeline for better quality and efficiency:
@@ -21,7 +47,7 @@ Major improvements to content cleaning pipeline for better quality and efficienc
 ## 🔍 LLM Debugging Features (January 2025)
 
 All LLM interactions are automatically logged for debugging:
-- **Full Request Logging**: Every prompt sent to DeepSeek API
+- **Full Request Logging**: Every prompt sent to LLM providers (DeepSeek/OpenRouter)
 - **Raw Response Logging**: Unprocessed LLM outputs before JSON parsing
 - **Error Context**: Failed parsing attempts with detailed error messages
 - **Metadata Tracking**: Timestamps, model parameters, and request IDs

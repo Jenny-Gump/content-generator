@@ -1,10 +1,75 @@
 # Troubleshooting Guide
 
-This guide covers common issues and solutions when using the Content Generation Pipeline, with special focus on LLM-related problems introduced in January 2025.
+This guide covers common issues and solutions when using the Content Generation Pipeline, with focus on multi-provider LLM system (September 2025) and previous LLM enhancements.
 
 ## 🚨 Common Issues
 
-### 1. LLM JSON Parsing Errors
+### 🆕 Multi-Provider LLM Issues (September 2025)
+
+#### 1. API Key Not Found Error
+
+**Problem**: `ValueError: API key not found for provider openrouter. Check OPENROUTER_API_KEY in .env`
+
+**Symptoms**:
+- Pipeline fails when trying to use OpenAI models
+- Error occurs during client creation
+
+**Solutions**:
+1. **Add missing API key** to `.env`:
+   ```bash
+   echo "OPENROUTER_API_KEY=sk-or-v1-your-key-here" >> .env
+   ```
+2. **Verify key format**:
+   - DeepSeek: `sk-xxxxxxxx...`
+   - OpenRouter: `sk-or-v1-xxxxxxxx...`
+
+3. **Check environment loading**:
+   ```python
+   import os
+   from dotenv import load_dotenv
+   load_dotenv()
+   print(os.getenv('OPENROUTER_API_KEY'))  # Should not be None
+   ```
+
+#### 2. Model Not Recognized
+
+**Problem**: Model falls back to default provider unexpectedly
+
+**Symptoms**:
+- Command line model override ignored
+- Logs show: `Model "custom-model" -> Provider: deepseek (fallback)`
+
+**Solutions**:
+1. **Check available models**:
+   ```python
+   from src.config import LLM_PROVIDERS
+   print(LLM_PROVIDERS['openrouter']['models'])
+   ```
+2. **Use exact model names**:
+   - ✅ Correct: `openai/gpt-4o-mini`
+   - ❌ Wrong: `gpt-4o-mini`
+
+#### 3. OpenRouter API Errors
+
+**Problem**: HTTP errors when using OpenRouter
+
+**Symptoms**:
+- `HTTP 401 Unauthorized`
+- `HTTP 429 Rate Limited`
+- Connection timeouts
+
+**Solutions**:
+1. **Verify API key validity** at [OpenRouter dashboard](https://openrouter.ai/keys)
+2. **Check account balance** for paid models
+3. **Retry with exponential backoff** (built into OpenAI client)
+4. **Switch to DeepSeek temporarily**:
+   ```bash
+   python main.py "topic" --extract-model "deepseek-chat"
+   ```
+
+---
+
+### 2. LLM JSON Parsing Errors
 
 **Problem**: `Failed to parse extracted JSON string: Extra data: line X column Y`
 

@@ -38,6 +38,7 @@ This project is an automated pipeline for generating high-quality content based 
 
 ## Project Documentation
 
+- **[LLM Models & Providers Guide](llm-models.md):** 🎛️ **Complete guide** to multi-provider LLM system, model selection, and command-line configuration.
 - **[Technical Pipeline Flow](pipeline-flow.md):** 🔧 **Comprehensive technical breakdown** of all 10 stages with data structures, LLM interactions, and processing logic.
 - **[Detailed Flow Description](flow.md):** A step-by-step breakdown of the entire pipeline, from the initial request to the final cleaned content.
 - **[Configuration Guide](configuration.md):** Instructions on how to configure the project, including API keys, scoring weights, and domain filters.

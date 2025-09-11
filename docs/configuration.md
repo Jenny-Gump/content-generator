@@ -2,20 +2,20 @@
 
 This project can be customized through the `.env` file, the `src/config.py` file, and the JSON files in the `filters/` directory.
 
-## 🆕 Flexible Model Configuration (September 2025)
+## 🆕 Latest Updates (September 2025)
 
-### **Per-Function Model Selection**
-The system now supports configurable models for each LLM function:
-- **Extract Prompts**: Configurable model for prompt extraction from articles
-- **Generate Article**: Configurable model for WordPress article generation
-- **Easy Model Switching**: Change models per function without code changes
-- **Backward Compatibility**: All functions default to `deepseek-reasoner`
+### **Multi-Provider LLM System**
+- **Multiple Providers**: DeepSeek and OpenAI (via OpenRouter) support
+- **Command Line Model Selection**: `--extract-model` and `--generate-model` flags
+- **Flexible Configuration**: Per-function model assignment
+- **Token Tracking**: Multi-provider usage monitoring
+
+**📖 For complete LLM configuration details, see [LLM Models & Providers Guide](llm-models.md)**
 
 ### **Previous Enhancements (January 2025)**
-- **DeepSeek API integration** for prompt extraction, ranking, and enrichment
 - **Full request/response logging** for debugging LLM interactions
-- **Robust JSON parsing** with multiple fallback strategies
-- **Stage-specific execution** using `--stage` parameter
+- **Robust JSON parsing** with multiple parsing strategies
+- **Enhanced prompt engineering** with format specifications
 
 ## API Keys (`.env`)
 
@@ -46,73 +46,18 @@ This file contains all the operational parameters for the pipeline.
 -   **`TOP_N_SOURCES`**: The number of top-ranked articles to select for the final cleaning stage.
     -   *Default: `5`*
 
-### **🆕 LLM Models Configuration**
+### **🎛️ LLM Models Configuration**
 
--   **`LLM_MODELS`**: Dictionary mapping pipeline stages to their respective models.
-    ```python
-    LLM_MODELS = {
-        "extract_prompts": "deepseek-reasoner",      # Model for prompt extraction
-        "generate_article": "deepseek-reasoner",    # Model for article generation
-    }
-    ```
-    
--   **`DEFAULT_MODEL`**: Fallback model used when no specific model is configured for a stage.
-    -   *Default: `"deepseek-reasoner"`*
+Basic model configuration in `src/config.py`:
 
-#### **How to Change Models for Different Functions:**
-
-**Example 1: Use different DeepSeek models**
 ```python
 LLM_MODELS = {
-    "extract_prompts": "deepseek-chat",          # Faster model for extraction
-    "generate_article": "deepseek-reasoner",    # More powerful model for generation
+    "extract_prompts": "deepseek-reasoner",      # Model for prompt extraction
+    "generate_article": "deepseek-reasoner",    # Model for article generation
 }
 ```
 
-**Example 2: Mix DeepSeek and OpenAI models**
-```python
-LLM_MODELS = {
-    "extract_prompts": "deepseek-reasoner",     # DeepSeek for extraction
-    "generate_article": "openai/gpt-4o-mini",  # OpenAI for generation via OpenRouter
-}
-```
-
-**Example 3: Full OpenAI setup**
-```python
-LLM_MODELS = {
-    "extract_prompts": "openai/gpt-4o-mini",    # Fast OpenAI model for extraction
-    "generate_article": "openai/gpt-4o",       # Premium OpenAI model for generation
-}
-```
-
-### **🚀 Command Line Overrides**
-
-You can override any model configuration using command line flags:
-
-```bash
-# Use OpenAI GPT-4o-mini for article generation only
-python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
-
-# Use different models for each stage
-python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o"
-
-# See all available options
-python main.py --help
-```
-
-### **Available Models**
-
-**DeepSeek Models:**
-- `deepseek-reasoner` - Most capable DeepSeek model with reasoning
-- `deepseek-chat` - Faster DeepSeek model for quick tasks
-
-**OpenAI Models (via OpenRouter):**
-- `openai/gpt-4o` - Latest GPT-4 Omni model
-- `openai/gpt-4o-mini` - Smaller, faster GPT-4 Omni
-- `openai/gpt-4-turbo` - GPT-4 Turbo model  
-- `openai/gpt-3.5-turbo` - Fast and cost-effective
-
-**Note**: OpenAI models require OPENROUTER_API_KEY in your .env file.
+**📖 For detailed model configuration, available providers, command-line usage, and examples, see [LLM Models & Providers Guide](llm-models.md)**
 
 ### Scoring Weights
 
