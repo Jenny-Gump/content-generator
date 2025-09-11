@@ -128,10 +128,23 @@ def _parse_json_from_response(response_content: str) -> Any:
     
     # Attempt 1.5: Fix escape character issues (common with Gemini responses)
     try:
-        # Fix escaped quotes in JSON keys/values: \"" -> "
-        fixed_content = response_content.replace('\\"', '"')
-        # Also handle escaped underscores in keys that shouldn't be escaped
-        fixed_content = re.sub(r'"([^"]*)\\_([^"]*)":', r'"\1_\2":', fixed_content)
+        # Fix common Gemini escape patterns
+        fixed_content = response_content
+        
+        # Remove code block wrappers if present
+        if fixed_content.startswith('```json\n') and fixed_content.endswith('\n```'):
+            fixed_content = fixed_content[8:-4].strip()
+        elif fixed_content.startswith('```\n') and fixed_content.endswith('\n```'):
+            fixed_content = fixed_content[4:-4].strip()
+        
+        # Fix escaped underscores in JSON keys (aggressive approach)
+        fixed_content = fixed_content.replace('prompt\\_text', 'prompt_text')
+        fixed_content = fixed_content.replace('expert\\_description', 'expert_description')
+        fixed_content = fixed_content.replace('why\\_good', 'why_good')
+        fixed_content = fixed_content.replace('how\\_to\\_improve', 'how_to_improve')
+        
+        # Fix any remaining backslash-underscore patterns
+        fixed_content = re.sub(r'\\\\_', '_', fixed_content)
         
         parsed = json.loads(fixed_content)
         if isinstance(parsed, list):
@@ -142,7 +155,8 @@ def _parse_json_from_response(response_content: str) -> Any:
             return parsed.get("data", [parsed])
         else:
             return []
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.debug(f"JSON fix attempt failed: {e}")
         pass
     
     # Attempt 2: If it looks like a single object, wrap it in an array
