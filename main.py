@@ -17,6 +17,7 @@ from src.llm_processing import (
     extract_prompts_from_article,
     generate_wordpress_article,
 )
+from src.wordpress_publisher import WordPressPublisher
 from src.token_tracker import TokenTracker
 from src.config import LLM_MODELS
 
@@ -35,7 +36,7 @@ def save_artifact(data, path, filename):
             json.dump(data, f, indent=4, ensure_ascii=False)
     logger.info(f"Saved artifact to {filepath}")
 
-async def main_flow(topic: str, model_overrides: dict = None):
+async def main_flow(topic: str, model_overrides: dict = None, publish_to_wordpress: bool = False):
     """
 The main pipeline for WordPress article generation.
     
@@ -157,6 +158,42 @@ The main pipeline for WordPress article generation.
     else:
         logger.error("Invalid WordPress data structure returned")
 
+    # --- Этап 8: WordPress Publication (опционально) ---
+    if publish_to_wordpress:
+        logger.info("--- Starting WordPress Publication ---")
+        try:
+            wp_publisher = WordPressPublisher()
+            
+            # Test connection first
+            logger.info("Testing WordPress connection...")
+            from src.wordpress_publisher import test_wordpress_connection
+            if test_wordpress_connection():
+                logger.info("✅ WordPress connection successful")
+                
+                # Publish article
+                publication_result = wp_publisher.publish_article(wordpress_data)
+                
+                # Save publication results
+                save_artifact(publication_result, paths["final_article"], "wordpress_publication_result.json")
+                
+                if publication_result['success']:
+                    logger.info(f"🎉 Article successfully published to WordPress!")
+                    logger.info(f"📝 WordPress ID: {publication_result['wordpress_id']}")
+                    logger.info(f"🔗 Edit URL: {publication_result['url']}")
+                else:
+                    logger.error(f"❌ WordPress publication failed: {publication_result['error']}")
+            else:
+                logger.error("❌ WordPress connection test failed, skipping publication")
+                
+        except Exception as e:
+            logger.error(f"❌ WordPress publication error: {str(e)}")
+            save_artifact({
+                'success': False, 
+                'error': str(e)
+            }, paths["final_article"], "wordpress_publication_result.json")
+    else:
+        logger.info("📝 WordPress publication skipped (use --publish-wp to enable)")
+
     # --- Save Token Usage Report ---
     token_report_path = token_tracker.save_token_report(
         base_path=base_output_path,
@@ -176,6 +213,8 @@ if __name__ == "__main__":
     parser.add_argument("--generate-model", type=str, help="Model for article generation (overrides config)")
     parser.add_argument("--provider", type=str, choices=["deepseek", "openrouter"], 
                        help="LLM provider (deepseek or openrouter)")
+    parser.add_argument("--publish-wp", action="store_true", 
+                       help="Publish generated article to WordPress")
     args = parser.parse_args()
 
     # Override config with command line arguments
@@ -185,4 +224,4 @@ if __name__ == "__main__":
     if args.generate_model:
         override_models["generate_article"] = args.generate_model
 
-    asyncio.run(main_flow(args.topic, model_overrides=override_models))
+    asyncio.run(main_flow(args.topic, model_overrides=override_models, publish_to_wordpress=args.publish_wp))

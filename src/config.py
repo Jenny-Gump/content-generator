@@ -37,11 +37,20 @@ DEPTH_SCORE_WEIGHT = 0.2
 # --- Selection ---
 TOP_N_SOURCES = 5
 
+# --- WordPress Publishing Configuration ---
+WORDPRESS_API_URL = os.getenv("WORDPRESS_API_URL", "https://ailynx.ru/wp-json/wp/v2")
+WORDPRESS_USERNAME = os.getenv("WORDPRESS_USERNAME", "PetrovA")
+WORDPRESS_APP_PASSWORD = os.getenv("WORDPRESS_APP_PASSWORD")
+USE_CUSTOM_META_ENDPOINT = os.getenv("USE_CUSTOM_META_ENDPOINT", "true").lower() == "true"
+CUSTOM_POST_META_API_KEY = os.getenv("CUSTOM_POST_META_API_KEY", "")
+WORDPRESS_CATEGORY = os.getenv("WORDPRESS_CATEGORY", "prompts")
+WORDPRESS_STATUS = os.getenv("WORDPRESS_STATUS", "draft")
+
 # --- LLM Models Configuration ---
 # Models for different pipeline stages
 LLM_MODELS = {
-    "extract_prompts": "deepseek-reasoner",      # Model for prompt extraction from articles
-    "generate_article": "deepseek-reasoner",    # Model for WordPress article generation
+    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",      # Model for prompt extraction from articles
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for WordPress article generation
 }
 
 # Default model if no specific model is configured
@@ -64,7 +73,9 @@ LLM_PROVIDERS = {
             "openai/gpt-4o",
             "openai/gpt-4o-mini",
             "openai/gpt-4-turbo",
-            "openai/gpt-3.5-turbo"
+            "openai/gpt-3.5-turbo",
+            "google/gemini-2.0-flash-001",
+            "google/gemini-2.5-flash-lite-preview-06-17"
         ],
         "extra_headers": {
             "HTTP-Referer": "https://github.com/your-repo/content-generator",

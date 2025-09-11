@@ -6,8 +6,8 @@ This guide covers the flexible multi-provider LLM system in the Content Generato
 
 The Content Generator supports multiple LLM providers through a unified interface:
 
-- **DeepSeek**: Primary provider with reasoning capabilities
-- **OpenRouter**: Gateway to OpenAI models (GPT-4o, GPT-4o-mini, etc.)
+- **OpenRouter**: Primary provider - gateway to Google Gemini 2.5 (65K tokens), OpenAI models (GPT-4o, GPT-4o-mini, etc.)
+- **DeepSeek**: Alternative provider with reasoning capabilities
 - **Extensible**: Easy to add new providers
 
 ## 📋 Configuration Overview
@@ -17,8 +17,8 @@ The Content Generator supports multiple LLM providers through a unified interfac
 ```python
 # Default models for each pipeline stage
 LLM_MODELS = {
-    "extract_prompts": "deepseek-reasoner",      # Model for prompt extraction
-    "generate_article": "deepseek-reasoner",    # Model for article generation
+    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",      # Model for prompt extraction
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for article generation
 }
 
 # Fallback model
@@ -52,14 +52,14 @@ LLM_PROVIDERS = {
 Add the following keys to your `.env` file:
 
 ```bash
-# Required for DeepSeek models
-DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Required for OpenAI models via OpenRouter
+# Required for Google Gemini models via OpenRouter (PRIMARY)
 OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx
 
 # Required for Firecrawl search/scraping
 FIRECRAWL_API_KEY=fc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Optional - for alternative models
+DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 **Note**: Only the keys for providers you plan to use are required.
@@ -69,7 +69,7 @@ FIRECRAWL_API_KEY=fc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ### Basic Usage
 
 ```bash
-# Use default models (DeepSeek reasoner for all tasks)
+# Use default models (Google Gemini 2.5 for all tasks)
 python main.py "Your topic"
 ```
 
@@ -101,34 +101,41 @@ python main.py --help
 | `deepseek-reasoner` | Most capable with reasoning | Complex tasks, default choice |
 | `deepseek-chat` | Faster conversational model | Quick extraction, speed-critical tasks |
 
+### Google Gemini Models (via OpenRouter) ⭐ **PRIMARY**
+
+| Model | Max Tokens | Description | Best For |
+|-------|------------|-------------|----------|
+| `google/gemini-2.5-flash-lite-preview-06-17` | **65,535** | Ultra-fast, high-capacity model | **Default choice - no truncation** |
+| `google/gemini-2.0-flash-001` | 8,192 | Fast multimodal model | ⚠️ Limited for long articles |
+
 ### OpenAI Models (via OpenRouter)
 
-| Model | Description | Best For |
-|-------|-------------|----------|
-| `openai/gpt-4o` | Latest GPT-4 Omni | Highest quality generation |
-| `openai/gpt-4o-mini` | Smaller, faster GPT-4 Omni | Balanced quality/speed |
-| `openai/gpt-4-turbo` | GPT-4 Turbo | High-quality, fast processing |
-| `openai/gpt-3.5-turbo` | Fast and cost-effective | Budget-conscious tasks |
+| Model | Max Tokens | Description | Best For |
+|-------|------------|-------------|----------|
+| `openai/gpt-4o` | 16,384 | Latest GPT-4 Omni | Highest quality generation |
+| `openai/gpt-4o-mini` | 16,384 | Smaller, faster GPT-4 Omni | Balanced quality/speed |
+| `openai/gpt-4-turbo` | 4,096 | GPT-4 Turbo | High-quality, fast processing |
+| `openai/gpt-3.5-turbo` | 4,096 | Fast and cost-effective | Budget-conscious tasks |
 
 ## 🎯 Configuration Examples
 
-### Example 1: Speed-Optimized Setup
+### Example 1: Default Gemini 2.5 Setup ⭐ **RECOMMENDED**
 ```python
 LLM_MODELS = {
-    "extract_prompts": "deepseek-chat",          # Fast extraction
-    "generate_article": "openai/gpt-4o-mini",   # Quality generation
+    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",   # High capacity
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",  # No truncation issues
 }
 ```
 
-### Example 2: Quality-First Setup  
+### Example 2: Mixed High-Performance Setup  
 ```python
 LLM_MODELS = {
     "extract_prompts": "deepseek-reasoner",     # Thorough extraction
-    "generate_article": "openai/gpt-4o",       # Premium generation
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",  # Large output capacity
 }
 ```
 
-### Example 3: Full OpenAI Setup
+### Example 3: Alternative Models Setup
 ```python
 LLM_MODELS = {
     "extract_prompts": "openai/gpt-4o-mini",    # Fast OpenAI for extraction

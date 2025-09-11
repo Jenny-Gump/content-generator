@@ -5,7 +5,8 @@ This project can be customized through the `.env` file, the `src/config.py` file
 ## 🆕 Latest Updates (September 2025)
 
 ### **Multi-Provider LLM System**
-- **Multiple Providers**: DeepSeek and OpenAI (via OpenRouter) support
+- **Primary Model**: Google Gemini 2.5 Flash Lite Preview (65K tokens) via OpenRouter
+- **Multiple Providers**: DeepSeek, OpenAI, and Google models support
 - **Command Line Model Selection**: `--extract-model` and `--generate-model` flags
 - **Flexible Configuration**: Per-function model assignment
 - **Token Tracking**: Multi-provider usage monitoring
@@ -19,19 +20,19 @@ This project can be customized through the `.env` file, the `src/config.py` file
 
 ## API Keys (`.env`)
 
-This file stores the essential API keys for Firecrawl, DeepSeek, and OpenRouter services.
+This file stores the essential API keys for Firecrawl, OpenRouter, and DeepSeek services.
 
 -   **`FIRECRAWL_API_KEY`**: Your unique API key from Firecrawl for search and scraping operations.
--   **`DEEPSEEK_API_KEY`**: Your API key for DeepSeek LLM service (default provider).
--   **`OPENROUTER_API_KEY`**: Your OpenRouter API key for accessing OpenAI models (GPT-4o, GPT-4o-mini, etc.).
+-   **`OPENROUTER_API_KEY`**: Your OpenRouter API key - **REQUIRED** for accessing Google Gemini 2.5 (default model).
+-   **`DEEPSEEK_API_KEY`**: Your API key for DeepSeek LLM service (alternative models).
 
 ```
 FIRECRAWL_API_KEY=fc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx
+DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-**Note**: OPENROUTER_API_KEY is only required if you plan to use OpenAI models via OpenRouter.
+**Note**: OPENROUTER_API_KEY is now REQUIRED as the primary model (Gemini 2.5) runs through OpenRouter.
 
 ## Main Configuration (`src/config.py`)
 
@@ -109,25 +110,23 @@ python main.py "AI trends in 2025"
 python main.py "Machine learning best practices"
 ```
 
-### Stage-Specific Execution
-
-Use the `--stage` parameter to stop at a specific stage for debugging:
+### Model Selection Examples
 
 ```bash
-# Stop after search and parsing (stages 1-6)
-python main.py "AI automation tools" --stage 6
+# Default models (DeepSeek for all tasks)
+python3 main.py "AI automation tools"
 
-# Stop after prompt extraction (stage 7) - useful for debugging LLM responses
-python main.py "Best prompts for analysis" --stage 7
+# OpenAI for generation, DeepSeek for extraction
+python3 main.py "Best prompts for analysis" --generate-model "openai/gpt-4o-mini"
 
-# Stop after ranking (stage 8)
-python main.py "Content generation techniques" --stage 8
+# Custom extraction model
+python3 main.py "Content generation techniques" --extract-model "deepseek-chat"
 
-# Stop after enrichment (stage 9)
-python main.py "SEO optimization strategies" --stage 9
+# Use different models for each stage
+python3 main.py "SEO optimization strategies" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o"
 
-# Full execution (stage 10) - same as no --stage parameter
-python main.py "Digital marketing trends" --stage 10
+# Specify provider preference
+python3 main.py "Digital marketing trends" --provider openrouter --generate-model "openai/gpt-4o-mini"
 ```
 
 ### LLM Configuration
@@ -193,7 +192,7 @@ If you encounter LLM-related errors, use the debug logs:
 
 1. **Check what was sent to LLM**: Look at files in `llm_requests/` directories
 2. **Check raw LLM responses**: Look at files in `llm_responses_raw/` directories
-3. **Use stage-specific execution**: Run `--stage 7` to debug prompt extraction
+3. **Check LLM interaction logs**: Review files in `llm_requests/` and `llm_responses_raw/` directories
 4. **Review prompts**: Check `prompts/prompt_collection/` for prompt templates
 
 For detailed debugging guide, see [LLM Debugging Guide](llm-debugging.md).

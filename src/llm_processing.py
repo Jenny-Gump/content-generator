@@ -339,26 +339,66 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
                 }
             )
         
-        # Парсим JSON ответ
+        # Парсим JSON ответ с улучшенной обработкой
         try:
+            # Попытка 1: стандартный парсинг
             wordpress_data = json.loads(response)
             logger.info(f"Successfully generated WordPress article: {wordpress_data.get('title', 'No title')}")
             return wordpress_data
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response from LLM: {e}")
-            logger.error(f"Raw response: {response[:500]}...")
-            # Fallback: return error structure
-            return {
-                "title": f"Ошибка генерации статьи: {topic}",
-                "content": f"<p>Произошла ошибка при генерации статьи. Сырой ответ: {response[:1000]}</p>",
-                "excerpt": "Ошибка генерации статьи",
-                "slug": "error-generating-article",
-                "categories": ["prompts"],
-                "_yoast_wpseo_title": "Ошибка генерации",
-                "_yoast_wpseo_metadesc": "Произошла ошибка при генерации статьи",
-                "image_caption": "Ошибка генерации изображения",
-                "focus_keyword": "промпты"
-            }
+            logger.warning(f"Standard JSON parsing failed: {e}")
+            logger.info("Attempting enhanced JSON parsing...")
+            
+            # Попытка 2: улучшенный парсинг
+            try:
+                # Удаляем возможные проблемные символы в начале/конце
+                cleaned_response = response.strip()
+                if cleaned_response.startswith('```json'):
+                    cleaned_response = cleaned_response[7:]
+                if cleaned_response.endswith('```'):
+                    cleaned_response = cleaned_response[:-3]
+                cleaned_response = cleaned_response.strip()
+                
+                # Проверяем валидность JSON структуры
+                if cleaned_response.startswith('{') and cleaned_response.count('{') > cleaned_response.count('}'):
+                    # Незавершенный JSON - ищем последнюю валидную структуру
+                    brace_count = 0
+                    last_valid_pos = -1
+                    
+                    for i, char in enumerate(cleaned_response):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                last_valid_pos = i
+                                break
+                    
+                    if last_valid_pos > 0:
+                        cleaned_response = cleaned_response[:last_valid_pos + 1]
+                
+                wordpress_data = json.loads(cleaned_response)
+                logger.info(f"Enhanced JSON parsing successful: {wordpress_data.get('title', 'No title')}")
+                return wordpress_data
+                
+            except json.JSONDecodeError as e2:
+                logger.error(f"Enhanced JSON parsing also failed: {e2}")
+                logger.error(f"Response length: {len(response)} characters")
+                logger.error(f"First 200 chars: {response[:200]}")
+                logger.error(f"Last 200 chars: {response[-200:]}")
+                
+                # Fallback: return error structure
+                return {
+                    "title": f"Ошибка парсинга JSON: {topic}",
+                    "content": f"<p>Не удалось распарсить ответ от LLM. Ответ получен полностью ({len(response)} символов), но содержит ошибки JSON форматирования.</p><details><summary>Сырой ответ (первые 2000 символов)</summary><pre>{response[:2000]}</pre></details>",
+                    "excerpt": "Ошибка парсинга JSON ответа",
+                    "slug": "json-parsing-error",
+                    "categories": ["prompts"],
+                    "_yoast_wpseo_title": "Ошибка парсинга JSON",
+                    "_yoast_wpseo_metadesc": "Произошла ошибка при парсинге JSON ответа от LLM",
+                    "image_caption": "Ошибка парсинга JSON",
+                    "focus_keyword": "промпты"
+                }
             
     except Exception as e:
         logger.error(f"Failed to generate WordPress article: {e}")

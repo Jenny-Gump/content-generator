@@ -4,6 +4,14 @@ This project is an automated pipeline for generating high-quality content based 
 
 ## Latest Updates (September 2025)
 
+### 🚀 WordPress Integration (NEW!)
+- **Автоматическая публикация**: Прямая интеграция с WordPress сайтом https://ailynx.ru
+- **Yoast SEO поддержка**: Автоматическое заполнение SEO полей (_yoast_wpseo_title, _yoast_wpseo_metadesc, focus_keyword)
+- **Категория "prompts"**: Все статьи автоматически публикуются в специальной категории
+- **Черновики по умолчанию**: Безопасная публикация в статусе draft для проверки
+- **Флаг --publish-wp**: Опциональная активация публикации через командную строку
+- **Полное тестирование**: Готовые скрипты для тестирования интеграции
+
 ### 🎛️ Flexible Multi-Provider Model System
 - **Multiple LLM Providers**: Support for DeepSeek and OpenAI (via OpenRouter)
 - **Command Line Model Selection**: Override models with `--extract-model` and `--generate-model` flags
@@ -62,36 +70,51 @@ This project is an automated pipeline for generating high-quality content based 
         OPENROUTER_API_KEY=your_openrouter_key_here  # Optional for OpenAI models
         ```
 
-3.  **Run the Pipeline:**
+3.  **Setup WordPress Integration (Optional):**
     ```bash
-    # Default pipeline (DeepSeek for all tasks)
+    # Create 'prompts' category in WordPress
+    python3 create_prompts_category.py
+    
+    # Test WordPress integration
+    python3 test_publication_auto.py
+    ```
+
+4.  **Run the Pipeline:**
+    ```bash
+    # Default pipeline (generation only)
     python main.py "Your topic of interest"
+    
+    # Generate and publish to WordPress
+    python main.py "Your topic" --publish-wp
     
     # Use OpenAI GPT-4o-mini for article generation
     python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
     
-    # Use different models for different tasks
-    python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o"
+    # Generate with custom model and publish
+    python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o" --publish-wp
     
     # See all available options
     python main.py --help
     ```
 
-4.  **Find the Results:**
+5.  **Find the Results:**
     -   All results, including intermediate artifacts and final cleaned articles, will be saved in the `output/` directory, organized by topic.
-    -   **NEW**: LLM request/response logs are saved in `llm_requests/` and `llm_responses_raw/` subdirectories.
-    -   **NEW**: Token usage reports are automatically generated as `token_usage_report.json` with detailed analytics.
+    -   **WordPress Publication**: If `--publish-wp` is used, publication results are saved in `wordpress_publication_result.json`
+    -   **LLM Logs**: Request/response logs are saved in `llm_requests/` and `llm_responses_raw/` subdirectories.
+    -   **Token Reports**: Token usage reports are automatically generated as `token_usage_report.json` with detailed analytics.
 
 ## Pipeline Stages
 
-The pipeline consists of 10 stages that can be executed individually for debugging:
+The pipeline consists of 8 automated stages:
 
-1. **Search** (`--stage 1`): Find relevant URLs using Firecrawl Search API
-2. **Parsing** (`--stage 2-6`): Extract and clean content from found URLs  
-3. **Prompt Extraction** (`--stage 7`): Extract prompts from articles using LLM
-4. **Ranking** (`--stage 8`): Rank and select best prompts using LLM
-5. **Enrichment** (`--stage 9`): Generate examples and commentary using LLM
-6. **Assembly** (`--stage 10`): Assemble final article using LLM
+1. **Search**: Find relevant URLs using Firecrawl Search API
+2. **Parsing**: Extract and clean content from found URLs  
+3. **Scoring**: Score sources by trust, relevance, and depth
+4. **Selection**: Select top 5 sources for analysis
+5. **Cleaning**: Clean and optimize content for LLM processing
+6. **Prompt Extraction**: Extract prompts from articles using LLM
+7. **Article Generation**: Generate complete WordPress article using LLM
+8. **WordPress Publication** (Optional): Publish article to WordPress with SEO metadata
 
 ## LLM Interaction Logging & Token Tracking
 
