@@ -120,9 +120,14 @@ The main pipeline for WordPress article generation.
     logger.info(f"Content cleaning summary: {total_original:,} → {total_cleaned:,} chars ({overall_reduction:.1f}% reduction)")
 
     # --- Этап 7: Извлечение промптов ---
+    logger.info(f"Starting prompt extraction from {len(cleaned_sources)} sources...")
     all_prompts = []
+    extraction_stats = []
+    
     for i, source in enumerate(cleaned_sources):
         source_id = f"source_{i+1}"
+        logger.info(f"Extracting prompts from {source_id}...")
+        
         prompts = extract_prompts_from_article(
             article_text=source['cleaned_content'], 
             topic=topic, 
@@ -131,7 +136,37 @@ The main pipeline for WordPress article generation.
             token_tracker=token_tracker,
             model_name=active_models.get("extract_prompts")
         )
+        
+        extraction_stats.append({
+            "source_id": source_id,
+            "url": source.get('url', 'Unknown'),
+            "prompts_extracted": len(prompts)
+        })
+        
+        if len(prompts) == 0:
+            logger.warning(f"⚠️  {source_id} extracted 0 prompts - possible JSON parsing issue")
+        else:
+            logger.info(f"✅ {source_id} extracted {len(prompts)} prompts")
+            
         all_prompts.extend(prompts)
+    
+    # Extraction summary
+    total_expected = len(cleaned_sources) * 2  # Expected 2 prompts per source
+    total_extracted = len(all_prompts)
+    success_rate = (total_extracted / total_expected * 100) if total_expected > 0 else 0
+    
+    logger.info(f"🔍 Prompt extraction summary:")
+    logger.info(f"   Sources processed: {len(cleaned_sources)}")
+    logger.info(f"   Prompts extracted: {total_extracted}/{total_expected} ({success_rate:.1f}% success rate)")
+    
+    # Detailed breakdown
+    for stat in extraction_stats:
+        logger.info(f"   {stat['source_id']}: {stat['prompts_extracted']} prompts")
+    
+    # Validation warnings
+    if total_extracted < (total_expected * 0.8):  # Less than 80% success rate
+        logger.warning(f"⚠️  Low extraction success rate ({success_rate:.1f}%). Consider checking for JSON parsing issues.")
+    
     save_artifact(all_prompts, paths["extraction"], "all_prompts.json")
     
     if not all_prompts:

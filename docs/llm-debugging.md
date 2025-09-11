@@ -212,6 +212,66 @@ LLM logs complement the main application logs:
 - **LLM logs**: `output/*/llm_*` - Detailed LLM interactions  
 - **Pipeline logs**: `pipeline.log` - Step-by-step execution
 
+## Prompt Extraction Monitoring
+
+**New Feature**: The pipeline now provides detailed extraction statistics and monitoring:
+
+### Real-Time Extraction Feedback
+
+During pipeline execution, you'll see detailed logs like:
+
+```
+INFO     Starting prompt extraction from 5 sources...
+INFO     Extracting prompts from source_1...
+INFO     ✅ source_1 extracted 2 prompts
+INFO     Extracting prompts from source_2...
+WARNING  ⚠️  source_2 extracted 0 prompts - possible JSON parsing issue
+INFO     🔍 Prompt extraction summary:
+INFO        Sources processed: 5
+INFO        Prompts extracted: 8/10 (80.0% success rate)
+INFO        source_1: 2 prompts
+INFO        source_2: 0 prompts
+INFO        source_3: 2 prompts
+INFO        source_4: 2 prompts
+INFO        source_5: 2 prompts
+WARNING  ⚠️  Low extraction success rate (80.0%). Consider checking for JSON parsing issues.
+```
+
+### Debugging Failed Extractions
+
+When you see "0 prompts extracted" warnings:
+
+1. **Check the raw response**:
+   ```bash
+   cat output/[topic]/06_extracted_prompts/llm_responses_raw/source_2_response.txt
+   ```
+
+2. **Look for common issues**:
+   - Escaped quotes: `"prompt\_text"` instead of `"prompt_text"`
+   - Malformed JSON structure
+   - Missing closing brackets
+
+3. **Validate JSON manually**:
+   ```bash
+   python3 -c "
+   import json
+   with open('source_2_response.txt') as f:
+       try:
+           data = json.loads(f.read())
+           print('Valid JSON:', len(data), 'objects')
+       except Exception as e:
+           print('JSON Error:', e)
+   "
+   ```
+
+### Expected Success Rates
+
+- **Healthy pipeline**: 100% success rate (10/10 prompts)
+- **Acceptable**: >80% success rate (8+/10 prompts)  
+- **Needs attention**: <80% success rate (check for systematic issues)
+
+The system automatically attempts to fix common JSON formatting issues from LLM responses, but monitoring helps identify persistent problems.
+
 ## Best Practices
 
 1. **Regular cleanup**: LLM logs can be large, archive old runs periodically

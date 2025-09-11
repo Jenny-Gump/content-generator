@@ -106,6 +106,7 @@ def _parse_json_from_response(response_content: str) -> Any:
     - Arrays: [{...}, {...}]
     - Objects with data wrapper: {"data": [...]}
     - Malformed JSON with common errors
+    - Escape character issues from LLM responses
     """
     response_content = response_content.strip()
     
@@ -120,6 +121,25 @@ def _parse_json_from_response(response_content: str) -> Any:
             return parsed
         elif isinstance(parsed, dict):
             return parsed.get("data", [parsed])  # If has data key, use it; otherwise wrap single object
+        else:
+            return []
+    except json.JSONDecodeError:
+        pass
+    
+    # Attempt 1.5: Fix escape character issues (common with Gemini responses)
+    try:
+        # Fix escaped quotes in JSON keys/values: \"" -> "
+        fixed_content = response_content.replace('\\"', '"')
+        # Also handle escaped underscores in keys that shouldn't be escaped
+        fixed_content = re.sub(r'"([^"]*)\\_([^"]*)":', r'"\1_\2":', fixed_content)
+        
+        parsed = json.loads(fixed_content)
+        if isinstance(parsed, list):
+            logger.info("Successfully parsed JSON after escape character fix")
+            return parsed
+        elif isinstance(parsed, dict):
+            logger.info("Successfully parsed JSON after escape character fix")
+            return parsed.get("data", [parsed])
         else:
             return []
     except json.JSONDecodeError:

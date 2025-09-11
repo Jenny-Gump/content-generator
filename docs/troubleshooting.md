@@ -5,9 +5,10 @@ This guide covers configuration and optimization tips for the Content Generation
 ## 📋 Table of Contents
 
 1. [Multi-Provider LLM Configuration](#1-multi-provider-llm-configuration) - Provider setup and troubleshooting
-2. [Performance Optimization](#2-performance-optimization) - Speed and efficiency tuning
-3. [Content Quality Optimization](#3-content-quality-optimization) - Improving output quality
-4. [Configuration Validation](#4-configuration-validation) - Verify your setup
+2. [JSON Parsing Issues](#2-json-parsing-issues) - Common LLM response parsing problems
+3. [Performance Optimization](#3-performance-optimization) - Speed and efficiency tuning
+4. [Content Quality Optimization](#4-content-quality-optimization) - Improving output quality
+5. [Configuration Validation](#5-configuration-validation) - Verify your setup
 
 ## 🛠️ Configuration & Optimization
 
@@ -62,7 +63,59 @@ This guide covers configuration and optimization tips for the Content Generation
 
 ---
 
-### 2. Performance Optimization
+### 2. JSON Parsing Issues
+
+**Problem**: LLM returns malformed JSON causing prompt extraction to fail
+
+**Symptoms**:
+- Log shows "⚠️ source_X extracted 0 prompts - possible JSON parsing issue"
+- Low extraction success rate (e.g., "4/10 prompts extracted (40% success rate)")
+- JSON parsing errors in logs
+
+**Common Causes**:
+
+1. **Escape Character Issues** (Most Common):
+   - LLM returns JSON with `\"` instead of `"`
+   - Example: `"prompt\_text": "content"` instead of `"prompt_text": "content"`
+   - **Solution**: The system now automatically fixes these issues, but you can verify in `llm_responses_raw/` files
+
+2. **Mixed JSON Formats**:
+   - Some responses wrap JSON in code blocks (```json)
+   - Some use different quote styles
+   - **Solution**: Parser handles multiple formats automatically
+
+3. **Prompt Instructions Issue**:
+   - Fixed in latest version: prompt now explicitly instructs to use standard JSON formatting
+   - **Check**: Ensure `prompts/prompt_collection/01_extract.txt` contains updated instructions
+
+**Debugging Steps**:
+
+1. **Check Raw Responses**:
+   ```bash
+   # View raw LLM responses for debugging
+   ls output/[topic]/06_extracted_prompts/llm_responses_raw/
+   cat output/[topic]/06_extracted_prompts/llm_responses_raw/source_1_response.txt
+   ```
+
+2. **Monitor Extraction Stats**:
+   - Pipeline now logs detailed extraction statistics
+   - Look for warnings about 0-prompt extractions
+   - Success rate should be >80% for healthy runs
+
+3. **Manual JSON Validation**:
+   ```bash
+   # Test if response is valid JSON
+   python3 -c "import json; print(json.loads(open('source_1_response.txt').read()))"
+   ```
+
+**Expected Behavior**:
+- Each source should extract exactly 2 prompts
+- Total: 10 prompts from 5 sources
+- Success rate should be 100% with fixed parser
+
+---
+
+### 3. Performance Optimization
 
 **Performance Tuning Options**:
 
@@ -98,7 +151,7 @@ tail -f pipeline.log
 
 ---
 
-### 3. Content Quality Optimization
+### 4. Content Quality Optimization
 
 **Quality Enhancement Strategies**:
 
@@ -142,7 +195,7 @@ tail -f pipeline.log
 
 ---
 
-### 4. Configuration Validation
+### 5. Configuration Validation
 
 **System Health Check**:
 

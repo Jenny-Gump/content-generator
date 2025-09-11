@@ -48,15 +48,20 @@ Formatting rules:
 
 * Write prompts exactly as they should be used (self-contained, copy-pastable); include placeholders and any required output schema.
 * No meta-commentary inside "prompt\_text". All commentary goes to the other fields.
-* Escape characters so the entire output is valid JSON. Deduplicate near-identical prompts (normalize whitespace).
+* Use standard JSON formatting with regular double quotes ("). Do NOT use escape characters like \" inside JSON keys or string values. Deduplicate near-identical prompts (normalize whitespace).
+
+CRITICAL JSON FORMAT REQUIREMENT:
+- Use regular quotes: "prompt_text": "content here"
+- DO NOT use escaped quotes: "prompt\_text": "content here"
+- Output must be parseable by standard JSON.parse()
 
 EXAMPLE OUTPUT FORMAT:
 [
 {
-"prompt\_text": "Analyze this data and provide insights...",
-"expert\_description": "This prompt requests data analysis with insights.",
-"why\_good": "Clear, specific request with defined output expectations.",
-"how\_to\_improve": "Add specific metrics or visualization requirements."
+"prompt_text": "Analyze this data and provide insights...",
+"expert_description": "This prompt requests data analysis with insights.",
+"why_good": "Clear, specific request with defined output expectations.",
+"how_to_improve": "Add specific metrics or visualization requirements."
 }
 ]
 
