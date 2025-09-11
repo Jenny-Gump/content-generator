@@ -199,6 +199,7 @@ The main pipeline for WordPress article generation.
     logger.info("Starting editorial review and cleanup...")
     wordpress_data_final = editorial_review(
         wordpress_data=wordpress_data,
+        topic=topic,
         base_path=paths["editorial_review"],
         token_tracker=token_tracker,
         model_name=active_models.get("editorial_review")

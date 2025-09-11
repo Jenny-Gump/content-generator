@@ -417,11 +417,54 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
                 
             except json.JSONDecodeError as e2:
                 logger.error(f"Enhanced JSON parsing also failed: {e2}")
-                logger.error(f"Response length: {len(response)} characters")
+                logger.warning("JSON parsing failed, attempting manual data extraction...")
+                
+                # Alternative approach: manual extraction when JSON parsing fails
+                import re
+                
+                try:
+                    extracted_data = {}
+                    
+                    # Extract title
+                    title_match = re.search(r'"title":\s*"([^"]*(?:[^"\\]|\\.)*)"', response)
+                    if title_match:
+                        extracted_data["title"] = title_match.group(1)
+                        
+                    # Extract other simple fields
+                    for field in ["excerpt", "slug", "_yoast_wpseo_title", "_yoast_wpseo_metadesc", "image_caption", "focus_keyword"]:
+                        field_match = re.search(f'"{field}":\\s*"([^"]*(?:[^"\\\\]|\\\\.)*)"', response)
+                        if field_match:
+                            extracted_data[field] = field_match.group(1)
+                    
+                    # Extract categories array
+                    categories_match = re.search(r'"categories":\s*\[(.*?)\]', response, re.DOTALL)
+                    if categories_match:
+                        categories_str = categories_match.group(1)
+                        categories = [cat.strip().strip('"') for cat in categories_str.split(',') if cat.strip()]
+                        extracted_data["categories"] = categories
+                    
+                    # Extract content (most complex field)
+                    content_match = re.search(r'"content":\s*"(.*?)(?=",\s*"[^"]+":|\s*})', response, re.DOTALL)
+                    if content_match:
+                        content = content_match.group(1)
+                        # Basic cleanup of escaped chars we can handle
+                        content = content.replace('\\"', '"').replace('\\n', '\n')
+                        extracted_data["content"] = content
+                    
+                    if len(extracted_data) >= 6:  # We got most fields
+                        logger.info(f"Manual extraction successful: extracted {len(extracted_data)} fields")
+                        return extracted_data
+                    else:
+                        logger.error(f"Manual extraction incomplete: only got {len(extracted_data)} fields")
+                        
+                except Exception as extract_err:
+                    logger.error(f"Manual extraction also failed: {extract_err}")
+                
+                # Final fallback: return error structure
+                logger.error(f"All parsing attempts failed. Response length: {len(response)} characters")
                 logger.error(f"First 200 chars: {response[:200]}")
                 logger.error(f"Last 200 chars: {response[-200:]}")
                 
-                # Fallback: return error structure
                 return {
                     "title": f"Ошибка парсинга JSON: {topic}",
                     "content": f"<p>Не удалось распарсить ответ от LLM. Ответ получен полностью ({len(response)} символов), но содержит ошибки JSON форматирования.</p><details><summary>Сырой ответ (первые 2000 символов)</summary><pre>{response[:2000]}</pre></details>",
@@ -449,13 +492,14 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
         }
 
 
-def editorial_review(wordpress_data: Dict[str, Any], base_path: str = None, 
+def editorial_review(wordpress_data: Dict[str, Any], topic: str, base_path: str = None, 
                     token_tracker: TokenTracker = None, model_name: str = None) -> Dict[str, Any]:
     """
     Performs editorial review and cleanup of WordPress article data.
     
     Args:
         wordpress_data: Dictionary with WordPress article data from generate_wordpress_article()
+        topic: The topic for the article (used in editorial prompt)
         base_path: Path to save LLM interactions
         token_tracker: Token usage tracker
         model_name: Override model name (uses config default if None)
@@ -465,7 +509,10 @@ def editorial_review(wordpress_data: Dict[str, Any], base_path: str = None,
         messages = _load_and_prepare_messages(
             "prompt_collection",
             "02_editorial_review", 
-            {"wordpress_data": json.dumps(wordpress_data, indent=2, ensure_ascii=False)}
+            {
+                "wordpress_data": json.dumps(wordpress_data, indent=2, ensure_ascii=False),
+                "topic": topic
+            }
         )
         
         # Use provided model or default from config
@@ -527,6 +574,60 @@ def editorial_review(wordpress_data: Dict[str, Any], base_path: str = None,
                 if cleaned_response.endswith('```'):
                     cleaned_response = cleaned_response[:-3]
                 cleaned_response = cleaned_response.strip()
+                
+                # Alternative approach: manual extraction when JSON parsing fails
+                logger.warning("JSON parsing failed, attempting manual data extraction...")
+                
+                # Extract individual fields using regex - more robust for malformed JSON
+                import re
+                
+                try:
+                    extracted_data = {}
+                    
+                    # Extract title
+                    title_match = re.search(r'"title":\s*"([^"]*(?:[^"\\]|\\.)*)"', response)
+                    if title_match:
+                        extracted_data["title"] = title_match.group(1)
+                        
+                    # Extract other simple fields
+                    for field in ["excerpt", "slug", "_yoast_wpseo_title", "_yoast_wpseo_metadesc", "image_caption", "focus_keyword"]:
+                        field_match = re.search(f'"{field}":\\s*"([^"]*(?:[^"\\\\]|\\\\.)*)"', response)
+                        if field_match:
+                            extracted_data[field] = field_match.group(1)
+                    
+                    # Extract categories array
+                    categories_match = re.search(r'"categories":\s*\[(.*?)\]', response, re.DOTALL)
+                    if categories_match:
+                        categories_str = categories_match.group(1)
+                        categories = [cat.strip().strip('"') for cat in categories_str.split(',') if cat.strip()]
+                        extracted_data["categories"] = categories
+                    
+                    # Extract content (most complex field)
+                    # Look for content field and extract everything until the next field or end
+                    content_match = re.search(r'"content":\s*"(.*?)(?=",\s*"[^"]+":|\s*})', response, re.DOTALL)
+                    if content_match:
+                        content = content_match.group(1)
+                        # Basic cleanup of escaped chars we can handle
+                        content = content.replace('\\"', '"').replace('\\n', '\n')
+                        extracted_data["content"] = content
+                        
+                        # Check if content was cleaned (no WordPress tags)
+                        wp_tags = ["<!-- wp:paragraph -->", "<!-- wp:heading -->", "<!-- wp:code -->", "<!-- wp:list -->"]
+                        found_tags = [tag for tag in wp_tags if tag in content]
+                        
+                        if not found_tags:
+                            logger.info("✅ Manual extraction successful - WordPress tags removed!")
+                        else:
+                            logger.warning(f"⚠️ Manual extraction found {len(found_tags)} WordPress tags still present")
+                    
+                    if len(extracted_data) >= 6:  # We got most fields
+                        logger.info(f"Manual extraction successful: extracted {len(extracted_data)} fields")
+                        return extracted_data
+                    else:
+                        logger.error(f"Manual extraction incomplete: only got {len(extracted_data)} fields")
+                        
+                except Exception as extract_err:
+                    logger.error(f"Manual extraction also failed: {extract_err}")
                 
                 # Handle incomplete JSON
                 if cleaned_response.startswith('{') and cleaned_response.count('{') > cleaned_response.count('}'):
