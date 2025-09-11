@@ -447,3 +447,119 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
             "image_caption": "Критическая ошибка",
             "focus_keyword": "ошибка"
         }
+
+
+def editorial_review(wordpress_data: Dict[str, Any], base_path: str = None, 
+                    token_tracker: TokenTracker = None, model_name: str = None) -> Dict[str, Any]:
+    """
+    Performs editorial review and cleanup of WordPress article data.
+    
+    Args:
+        wordpress_data: Dictionary with WordPress article data from generate_wordpress_article()
+        base_path: Path to save LLM interactions
+        token_tracker: Token usage tracker
+        model_name: Override model name (uses config default if None)
+    """
+    logger.info("Starting editorial review and cleanup of WordPress article...")
+    try:
+        messages = _load_and_prepare_messages(
+            "prompt_collection",
+            "02_editorial_review", 
+            {"wordpress_data": json.dumps(wordpress_data, indent=2, ensure_ascii=False)}
+        )
+        
+        # Use provided model or default from config
+        model_to_use = model_name or LLM_MODELS.get("editorial_review", DEFAULT_MODEL)
+        client = get_llm_client(model_to_use)
+        
+        response_obj = client.chat.completions.create(
+            model=model_to_use,
+            messages=messages,
+            temperature=0.2,  # Lower temperature for more consistent editing
+            timeout=300,  # 5 minute timeout
+            response_format={"type": "json_object"}  # Enforce JSON response
+        )
+        response = response_obj.choices[0].message.content
+        
+        # Track token usage
+        if token_tracker and response_obj.usage:
+            provider = get_provider_for_model(model_to_use)
+            token_tracker.add_usage(
+                stage="editorial_review",
+                usage=response_obj.usage,
+                extra_metadata={
+                    "original_title": wordpress_data.get('title', 'Unknown'),
+                    "model": model_to_use,
+                    "provider": provider
+                }
+            )
+        
+        # Save LLM interaction for debugging
+        if base_path:
+            save_llm_interaction(
+                base_path=base_path,
+                stage_name="editorial_review",
+                messages=messages,
+                response=response,
+                extra_params={
+                    "original_title": wordpress_data.get('title', 'Unknown'),
+                    "purpose": "editorial_review_and_cleanup",
+                    "response_format": "json_object",
+                    "model": model_to_use
+                }
+            )
+        
+        # Parse JSON response with enhanced error handling
+        try:
+            # Attempt 1: standard parsing
+            edited_data = json.loads(response)
+            logger.info(f"Successfully completed editorial review: {edited_data.get('title', 'No title')}")
+            return edited_data
+        except json.JSONDecodeError as e:
+            logger.warning(f"Standard JSON parsing failed: {e}")
+            logger.info("Attempting enhanced JSON parsing...")
+            
+            try:
+                # Attempt 2: enhanced parsing with cleanup
+                cleaned_response = response.strip()
+                if cleaned_response.startswith('```json'):
+                    cleaned_response = cleaned_response[7:]
+                if cleaned_response.endswith('```'):
+                    cleaned_response = cleaned_response[:-3]
+                cleaned_response = cleaned_response.strip()
+                
+                # Handle incomplete JSON
+                if cleaned_response.startswith('{') and cleaned_response.count('{') > cleaned_response.count('}'):
+                    brace_count = 0
+                    last_valid_pos = -1
+                    
+                    for i, char in enumerate(cleaned_response):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                last_valid_pos = i
+                                break
+                    
+                    if last_valid_pos > 0:
+                        cleaned_response = cleaned_response[:last_valid_pos + 1]
+                
+                edited_data = json.loads(cleaned_response)
+                logger.info(f"Enhanced JSON parsing successful: {edited_data.get('title', 'No title')}")
+                return edited_data
+                
+            except json.JSONDecodeError as e2:
+                logger.error(f"Enhanced JSON parsing also failed: {e2}")
+                logger.error(f"Response length: {len(response)} characters")
+                logger.error(f"First 300 chars: {response[:300]}")
+                logger.error(f"Last 300 chars: {response[-300:]}")
+                
+                # Fallback: return original data with error notification
+                logger.warning("Returning original WordPress data due to parsing errors")
+                return wordpress_data
+                
+    except Exception as e:
+        logger.error(f"Critical error during editorial review: {e}")
+        logger.warning("Returning original WordPress data due to critical error")
+        return wordpress_data

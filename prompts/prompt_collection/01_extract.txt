@@ -65,6 +65,19 @@ EXAMPLE OUTPUT FORMAT:
 }
 ]
 
-## User: INPUT:
+## User: 
+I need you to extract prompts specifically related to the topic: **"{topic}"**
+
+CRITICAL REQUIREMENT: Only extract prompts that are directly relevant to this specific topic. Ignore any prompts that are not related to "{topic}".
+
+TOPIC FOCUS: "{topic}"
+
+INPUT ARTICLE:
 ----------------
 {article_text}
+
+EXTRACTION FILTER:
+- Extract ONLY prompts that are specifically about "{topic}"
+- Discard any prompts about unrelated topics
+- If the article contains no relevant prompts about "{topic}", return an empty array []
+- Focus on practical, actionable prompts that users would find valuable for "{topic}"

@@ -51,6 +51,7 @@ WORDPRESS_STATUS = os.getenv("WORDPRESS_STATUS", "draft")
 LLM_MODELS = {
     "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",      # Model for prompt extraction from articles
     "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for WordPress article generation
+    "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for editorial review and cleanup
 }
 
 # Default model if no specific model is configured

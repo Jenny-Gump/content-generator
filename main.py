@@ -16,6 +16,7 @@ from src.processing import (
 from src.llm_processing import (
     extract_prompts_from_article,
     generate_wordpress_article,
+    editorial_review,
 )
 from src.wordpress_publisher import WordPressPublisher
 from src.token_tracker import TokenTracker
@@ -68,6 +69,7 @@ The main pipeline for WordPress article generation.
         "cleaning": os.path.join(base_output_path, "05_cleaning"),
         "extraction": os.path.join(base_output_path, "06_extracted_prompts"),
         "final_article": os.path.join(base_output_path, "07_final_article"),
+        "editorial_review": os.path.join(base_output_path, "08_editorial_review"),
     }
     for path in paths.values():
         os.makedirs(path, exist_ok=True)
@@ -173,7 +175,7 @@ The main pipeline for WordPress article generation.
         logger.error("No prompts could be extracted from the sources. Exiting.")
         return
 
-    # --- New Stage: Generate WordPress Article ---
+    # --- Этап 7: Generate WordPress Article ---
     logger.info("Generating WordPress-ready article from collected prompts...")
     wordpress_data = generate_wordpress_article(
         prompts=all_prompts, 
@@ -192,8 +194,28 @@ The main pipeline for WordPress article generation.
         logger.info(f"Generated article: {wordpress_data.get('title', 'No title')}")
     else:
         logger.error("Invalid WordPress data structure returned")
+        
+    # --- Этап 8: Editorial Review ---
+    logger.info("Starting editorial review and cleanup...")
+    wordpress_data_final = editorial_review(
+        wordpress_data=wordpress_data,
+        base_path=paths["editorial_review"],
+        token_tracker=token_tracker,
+        model_name=active_models.get("editorial_review")
+    )
+    
+    # Сохраняем отредактированную статью
+    save_artifact(wordpress_data_final, paths["editorial_review"], "wordpress_data_final.json")
+    
+    # Сохраняем отдельно финальный HTML контент
+    if isinstance(wordpress_data_final, dict) and "content" in wordpress_data_final:
+        save_artifact(wordpress_data_final["content"], paths["editorial_review"], "article_content_final.html")
+        logger.info(f"Editorial review completed: {wordpress_data_final.get('title', 'No title')}")
+    else:
+        logger.warning("Editorial review returned invalid structure, using original data")
+        wordpress_data_final = wordpress_data
 
-    # --- Этап 8: WordPress Publication (опционально) ---
+    # --- Этап 9: WordPress Publication (опционально) ---
     if publish_to_wordpress:
         logger.info("--- Starting WordPress Publication ---")
         try:
@@ -205,11 +227,11 @@ The main pipeline for WordPress article generation.
             if test_wordpress_connection():
                 logger.info("✅ WordPress connection successful")
                 
-                # Publish article
-                publication_result = wp_publisher.publish_article(wordpress_data)
+                # Publish article (use final edited version)
+                publication_result = wp_publisher.publish_article(wordpress_data_final)
                 
                 # Save publication results
-                save_artifact(publication_result, paths["final_article"], "wordpress_publication_result.json")
+                save_artifact(publication_result, paths["editorial_review"], "wordpress_publication_result.json")
                 
                 if publication_result['success']:
                     logger.info(f"🎉 Article successfully published to WordPress!")
@@ -225,7 +247,7 @@ The main pipeline for WordPress article generation.
             save_artifact({
                 'success': False, 
                 'error': str(e)
-            }, paths["final_article"], "wordpress_publication_result.json")
+            }, paths["editorial_review"], "wordpress_publication_result.json")
     else:
         logger.info("📝 WordPress publication skipped (use --publish-wp to enable)")
 
