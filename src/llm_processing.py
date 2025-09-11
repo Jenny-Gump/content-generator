@@ -107,6 +107,7 @@ def _parse_json_from_response(response_content: str) -> Any:
     - Objects with data wrapper: {"data": [...]}
     - Malformed JSON with common errors
     - Escape character issues from LLM responses
+    - Control characters in editorial review responses
     """
     response_content = response_content.strip()
     
@@ -123,12 +124,13 @@ def _parse_json_from_response(response_content: str) -> Any:
             return parsed.get("data", [parsed])  # If has data key, use it; otherwise wrap single object
         else:
             return []
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.warning(f"Standard JSON parsing failed: {e}")
         pass
     
-    # Attempt 1.5: Fix escape character issues (common with Gemini responses)
+    # Attempt 1.5: Enhanced JSON preprocessing (for editorial review control characters)
     try:
-        # Fix common Gemini escape patterns
+        logger.info("Attempting enhanced JSON parsing...")
         fixed_content = response_content
         
         # Remove code block wrappers if present
@@ -136,6 +138,10 @@ def _parse_json_from_response(response_content: str) -> Any:
             fixed_content = fixed_content[8:-4].strip()
         elif fixed_content.startswith('```\n') and fixed_content.endswith('\n```'):
             fixed_content = fixed_content[4:-4].strip()
+        
+        # Fix control characters that cause "Invalid control character" errors
+        # Replace unescaped control characters within JSON string values
+        fixed_content = re.sub(r'(:\s*")([^"]*?)(")', lambda m: m.group(1) + m.group(2).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + m.group(3), fixed_content)
         
         # Fix escaped underscores in JSON keys (aggressive approach)
         fixed_content = fixed_content.replace('prompt\\_text', 'prompt_text')
@@ -146,17 +152,20 @@ def _parse_json_from_response(response_content: str) -> Any:
         # Fix any remaining backslash-underscore patterns
         fixed_content = re.sub(r'\\\\_', '_', fixed_content)
         
+        # Fix unescaped quotes within JSON string values (common in HTML content)
+        fixed_content = re.sub(r'(:\s*")([^"]*?[^\\])(")', lambda m: m.group(1) + m.group(2).replace('"', '\\"') + m.group(3), fixed_content)
+        
         parsed = json.loads(fixed_content)
         if isinstance(parsed, list):
-            logger.info("Successfully parsed JSON after escape character fix")
+            logger.info("Successfully parsed JSON after enhanced preprocessing")
             return parsed
         elif isinstance(parsed, dict):
-            logger.info("Successfully parsed JSON after escape character fix")
+            logger.info("Successfully parsed JSON after enhanced preprocessing")
             return parsed.get("data", [parsed])
         else:
             return []
     except json.JSONDecodeError as e:
-        logger.debug(f"JSON fix attempt failed: {e}")
+        logger.warning(f"Enhanced JSON parsing failed: {e}")
         pass
     
     # Attempt 2: If it looks like a single object, wrap it in an array
