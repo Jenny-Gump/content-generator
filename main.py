@@ -267,15 +267,34 @@ The main pipeline for WordPress article generation.
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AI Content Generation Pipeline for WordPress")
-    parser.add_argument("topic", type=str, help="The topic for content generation.")
+    
+    # Основные аргументы
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("topic", type=str, nargs="?", help="The topic for content generation (single mode)")
+    group.add_argument("--batch", type=str, help="Path to file with topics for batch processing")
+    
+    # Модели
     parser.add_argument("--extract-model", type=str, help="Model for prompt extraction (overrides config)")
     parser.add_argument("--generate-model", type=str, help="Model for article generation (overrides config)")
     parser.add_argument("--editorial-model", type=str, help="Model for editorial review and cleanup (overrides config)")
     parser.add_argument("--provider", type=str, choices=["deepseek", "openrouter"], 
                        help="LLM provider (deepseek or openrouter)")
+    
+    # Настройки публикации
     parser.add_argument("--no-publish", action="store_true", 
                        help="Skip WordPress publication (by default articles are published)")
+    
+    # Настройки батч-обработки
+    parser.add_argument("--content-type", type=str, default="prompt_collection",
+                       help="Content type for batch processing (default: prompt_collection)")
+    parser.add_argument("--resume", action="store_true", 
+                       help="Resume previous batch processing session")
+    
     args = parser.parse_args()
+
+    # Валидация аргументов
+    if not args.topic and not args.batch:
+        parser.error("Either topic or --batch must be specified")
 
     # Override config with command line arguments
     override_models = {}
@@ -288,4 +307,43 @@ if __name__ == "__main__":
 
     # By default publish to WordPress, unless --no-publish is specified
     publish_to_wp = not args.no_publish
-    asyncio.run(main_flow(args.topic, model_overrides=override_models, publish_to_wordpress=publish_to_wp))
+
+    # Запуск в зависимости от режима
+    if args.batch:
+        # Режим батч-обработки
+        logger.info(f"🎯 Starting batch processing mode")
+        logger.info(f"   Topics file: {args.batch}")
+        logger.info(f"   Content type: {args.content_type}")
+        logger.info(f"   Resume: {args.resume}")
+        logger.info(f"   Publish to WordPress: {publish_to_wp}")
+        
+        from batch_processor import run_batch_processor
+        
+        try:
+            success = asyncio.run(run_batch_processor(
+                topics_file=args.batch,
+                content_type=args.content_type,
+                model_overrides=override_models if override_models else None,
+                resume=args.resume,
+                skip_publication=not publish_to_wp
+            ))
+            
+            if success:
+                logger.info("✅ Batch processing completed successfully")
+            else:
+                logger.error("❌ Batch processing completed with errors")
+                sys.exit(1)
+                
+        except KeyboardInterrupt:
+            logger.info("\n🛑 Batch processing interrupted by user")
+            sys.exit(130)
+        except Exception as e:
+            logger.error(f"💥 Batch processing failed: {e}")
+            sys.exit(1)
+    else:
+        # Обычный одиночный режим
+        logger.info(f"📝 Starting single topic processing mode")
+        logger.info(f"   Topic: {args.topic}")
+        logger.info(f"   Publish to WordPress: {publish_to_wp}")
+        
+        asyncio.run(main_flow(args.topic, model_overrides=override_models, publish_to_wordpress=publish_to_wp))

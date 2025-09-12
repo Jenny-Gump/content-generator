@@ -20,6 +20,16 @@ This project is an automated pipeline for generating high-quality content based 
 - **Флаг --no-publish**: Опциональное отключение публикации через командную строку
 - **Полное тестирование**: Готовые скрипты для тестирования интеграции
 
+### 🎯 Batch Processing System (NEW!)
+- **Sequential Processing**: Process multiple topics from a text file, one by one
+- **WordPress Verification**: Strict publication verification before moving to next topic
+- **Memory Management**: Built-in memory monitoring and cleanup between topics
+- **Resume Support**: Continue from where you left off with `--resume` flag
+- **Content Types**: Modular system supporting different content types (prompts, business ideas, etc.)
+- **Progress Tracking**: Detailed progress files and failed topic logging
+- **Timeout Protection**: Per-topic timeouts and retry mechanisms
+- **Graceful Shutdown**: Safe interruption with cleanup and progress saving
+
 ### 🎛️ Command Line Model Control System
 - **Full Pipeline Control**: Override models for all 3 stages with dedicated flags
 - **Multiple LLM Providers**: Support for DeepSeek and OpenAI (via OpenRouter)
@@ -96,7 +106,7 @@ This project is an automated pipeline for generating high-quality content based 
 
 4.  **Run the Pipeline:**
     ```bash
-    # Default pipeline (generation and auto-publish to WordPress)
+    # Single topic processing (default with WordPress auto-publish)
     python main.py "Your topic of interest"
     
     # Generate without WordPress publication
@@ -105,11 +115,17 @@ This project is an automated pipeline for generating high-quality content based 
     # Use OpenAI GPT-4o-mini for article generation
     python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
     
-    # Full pipeline with custom models for all stages (auto-publish by default)
+    # Full pipeline with custom models for all stages
     python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o" --editorial-model "openai/gpt-4o-mini"
     
-    # Use different editorial model (default is deepseek-reasoner)
-    python main.py "Your topic" --editorial-model "openai/gpt-4o"
+    # BATCH PROCESSING - Process multiple topics from file
+    python main.py --batch topics_prompts.txt
+    
+    # Batch processing with custom settings
+    python main.py --batch topics_prompts.txt --content-type prompt_collection --resume
+    
+    # Batch processing without WordPress publication
+    python main.py --batch topics_prompts.txt --no-publish
     
     # See all available options
     python main.py --help
@@ -133,6 +149,47 @@ The pipeline consists of 8 automated stages:
 6. **Prompt Extraction**: Extract prompts from articles using LLM
 7. **Article Generation**: Generate complete WordPress article using LLM
 8. **WordPress Publication** (Default): Automatically publish article to WordPress with SEO metadata
+
+## Batch Processing System
+
+### Features
+- **Sequential Processing**: Processes topics one by one, strictly in order
+- **WordPress Verification**: Waits for WordPress publication confirmation before next topic
+- **Memory Management**: Built-in memory monitoring and cleanup between topics
+- **Progress Tracking**: Saves progress and can resume interrupted sessions
+- **Content Types**: Supports different content types with separate configurations
+- **Error Handling**: Retry mechanism for failed topics with configurable limits
+
+### Usage Examples
+```bash
+# Basic batch processing
+python main.py --batch topics_prompts.txt
+
+# With custom content type and resume
+python main.py --batch topics_business.txt --content-type business_ideas --resume
+
+# Skip WordPress publication for all topics
+python main.py --batch topics_prompts.txt --no-publish
+
+# Custom models for batch processing
+python main.py --batch topics_prompts.txt --generate-model "openai/gpt-4o" --editorial-model "deepseek-reasoner"
+```
+
+### Topics File Format
+```
+# Comments start with #
+# One topic per line
+
+prompts for creative design inspiration
+prompts for business plan development
+prompts for educational content creation
+```
+
+### Configuration Files
+- **`batch_config.py`**: Main configuration for timeouts, memory limits, retry policies
+- **`topics_prompts.txt`**: Example topics file for prompt-related content
+- **Progress files**: `.batch_progress_{content_type}.json` for tracking progress
+- **Lock files**: `.batch_lock_{content_type}.pid` to prevent concurrent runs
 
 ## LLM Interaction Logging & Token Tracking
 

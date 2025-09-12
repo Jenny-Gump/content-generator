@@ -1,0 +1,33 @@
+# Пример файла с темами для батч-обработки
+# Каждая строка - отдельная тема для генерации статьи
+# Строки начинающиеся с # игнорируются как комментарии
+
+# Промпты для творчества и дизайна
+prompts for creative design inspiration and visual storytelling
+prompts for logo design and brand identity creation
+prompts for social media content creation and visual posts
+
+# Промпты для бизнеса и маркетинга
+prompts for business plan development and startup ideas
+prompts for marketing copywriting and advertising campaigns
+prompts for sales pitch creation and customer communication
+
+# Промпты для образования и обучения
+prompts for educational content creation and course development
+prompts for quiz generation and assessment tools
+prompts for presentation creation and public speaking
+
+# Промпты для личной продуктивности
+prompts for goal setting and personal development
+prompts for time management and productivity optimization
+prompts for habit formation and lifestyle improvement
+
+# Промпты для технологий и разработки
+prompts for code review and programming assistance
+prompts for technical documentation and API guides
+prompts for debugging and troubleshooting solutions
+
+# Промпты для контента и SEO
+prompts for blog post creation and content marketing
+prompts for keyword research and SEO optimization
+prompts for email marketing and newsletter creation

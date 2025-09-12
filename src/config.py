@@ -50,8 +50,8 @@ WORDPRESS_STATUS = os.getenv("WORDPRESS_STATUS", "draft")
 # Models for different pipeline stages
 LLM_MODELS = {
     "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",      # Model for prompt extraction from articles
-    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for WordPress article generation
-    "editorial_review": "deepseek-reasoner",                             # Model for editorial review and cleanup (default)
+    "generate_article": "deepseek-reasoner",                             # Model for WordPress article generation (switched from gemini)
+    "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for editorial review and cleanup (switched from deepseek)
 }
 
 # Default model if no specific model is configured
