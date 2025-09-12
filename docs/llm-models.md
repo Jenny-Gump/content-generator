@@ -17,8 +17,9 @@ The Content Generator supports multiple LLM providers through a unified interfac
 ```python
 # Default models for each pipeline stage
 LLM_MODELS = {
-    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",      # Model for prompt extraction
-    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for article generation
+    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",      # Model for prompt extraction (LLM-1)
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",     # Model for article generation (LLM-2)
+    "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",     # Model for editorial review and cleanup (LLM-3)
 }
 
 # Fallback model
@@ -79,18 +80,23 @@ python main.py "Your topic"
 # Use OpenAI GPT-4o-mini for article generation only
 python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
 
-# Use different models for each stage
-python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o"
+# Use DeepSeek Reasoner for editorial review only
+python main.py "Your topic" --editorial-model "deepseek-reasoner"
+
+# Full pipeline with custom models for all 3 stages
+python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o" --editorial-model "deepseek-reasoner"
 
 # See all available options
 python main.py --help
 ```
 
-### Available Flags
+### Available Command Line Flags
 
-- `--extract-model MODEL` - Override model for prompt extraction
-- `--generate-model MODEL` - Override model for article generation  
+- `--extract-model MODEL` - Override model for prompt extraction (LLM-1)
+- `--generate-model MODEL` - Override model for article generation (LLM-2)  
+- `--editorial-model MODEL` - Override model for editorial review and cleanup (LLM-3)
 - `--provider {deepseek,openrouter}` - Specify provider preference
+- `--publish-wp` - Enable WordPress publication
 
 ## 📖 Available Models
 
@@ -122,33 +128,46 @@ python main.py --help
 ### Example 1: Default Gemini 2.5 Setup ⭐ **RECOMMENDED**
 ```python
 LLM_MODELS = {
-    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",   # High capacity
-    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",  # No truncation issues
+    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",   # High capacity (LLM-1)
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",  # No truncation issues (LLM-2)
+    "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",  # Consistent quality (LLM-3)
 }
 ```
 
 ### Example 2: Mixed High-Performance Setup  
 ```python
 LLM_MODELS = {
-    "extract_prompts": "deepseek-reasoner",     # Thorough extraction
-    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",  # Large output capacity
+    "extract_prompts": "deepseek-reasoner",     # Thorough extraction with reasoning (LLM-1)
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",  # Large output capacity (LLM-2)
+    "editorial_review": "deepseek-reasoner",    # Deep reasoning for cleanup (LLM-3)
 }
 ```
 
 ### Example 3: Alternative Models Setup
 ```python
 LLM_MODELS = {
-    "extract_prompts": "openai/gpt-4o-mini",    # Fast OpenAI for extraction
-    "generate_article": "openai/gpt-4o",       # Premium OpenAI for generation
+    "extract_prompts": "openai/gpt-4o-mini",    # Fast OpenAI for extraction (LLM-1)
+    "generate_article": "openai/gpt-4o",       # Premium OpenAI for generation (LLM-2)
+    "editorial_review": "openai/gpt-4o-mini",  # Balanced editing quality (LLM-3)
 }
 ```
 
 ### Example 4: Budget-Conscious Setup
 ```python
 LLM_MODELS = {
-    "extract_prompts": "deepseek-chat",         # Free, fast extraction
-    "generate_article": "openai/gpt-3.5-turbo", # Low-cost generation
+    "extract_prompts": "deepseek-chat",         # Free, fast extraction (LLM-1)
+    "generate_article": "openai/gpt-3.5-turbo", # Low-cost generation (LLM-2)
+    "editorial_review": "deepseek-chat",        # Free editorial review (LLM-3)
 }
+```
+
+### Example 5: Command Line Editorial Override
+```bash
+# Use DeepSeek Reasoner specifically for editorial review
+python main.py "AI tools for content creators" --editorial-model "deepseek-reasoner"
+
+# Mixed providers with editorial focus
+python main.py "prompt engineering" --generate-model "openai/gpt-4o" --editorial-model "deepseek-reasoner"
 ```
 
 ## 💰 Token Tracking

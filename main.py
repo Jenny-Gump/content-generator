@@ -37,7 +37,7 @@ def save_artifact(data, path, filename):
             json.dump(data, f, indent=4, ensure_ascii=False)
     logger.info(f"Saved artifact to {filepath}")
 
-async def main_flow(topic: str, model_overrides: dict = None, publish_to_wordpress: bool = False):
+async def main_flow(topic: str, model_overrides: dict = None, publish_to_wordpress: bool = True):
     """
 The main pipeline for WordPress article generation.
     
@@ -270,10 +270,11 @@ if __name__ == "__main__":
     parser.add_argument("topic", type=str, help="The topic for content generation.")
     parser.add_argument("--extract-model", type=str, help="Model for prompt extraction (overrides config)")
     parser.add_argument("--generate-model", type=str, help="Model for article generation (overrides config)")
+    parser.add_argument("--editorial-model", type=str, help="Model for editorial review and cleanup (overrides config)")
     parser.add_argument("--provider", type=str, choices=["deepseek", "openrouter"], 
                        help="LLM provider (deepseek or openrouter)")
-    parser.add_argument("--publish-wp", action="store_true", 
-                       help="Publish generated article to WordPress")
+    parser.add_argument("--no-publish", action="store_true", 
+                       help="Skip WordPress publication (by default articles are published)")
     args = parser.parse_args()
 
     # Override config with command line arguments
@@ -282,5 +283,9 @@ if __name__ == "__main__":
         override_models["extract_prompts"] = args.extract_model
     if args.generate_model:
         override_models["generate_article"] = args.generate_model
+    if args.editorial_model:
+        override_models["editorial_review"] = args.editorial_model
 
-    asyncio.run(main_flow(args.topic, model_overrides=override_models, publish_to_wordpress=args.publish_wp))
+    # By default publish to WordPress, unless --no-publish is specified
+    publish_to_wp = not args.no_publish
+    asyncio.run(main_flow(args.topic, model_overrides=override_models, publish_to_wordpress=publish_to_wp))

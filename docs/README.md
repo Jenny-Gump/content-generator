@@ -13,19 +13,26 @@ This project is an automated pipeline for generating high-quality content based 
 - **Конкретные примеры**: Встроенные примеры показывают трансформацию "до" и "после" обогащения
 
 ### 🚀 WordPress Integration
-- **Автоматическая публикация**: Прямая интеграция с WordPress сайтом https://ailynx.ru
+- **Автоматическая публикация**: По умолчанию все статьи публикуются на https://ailynx.ru
 - **Yoast SEO поддержка**: Автоматическое заполнение SEO полей (_yoast_wpseo_title, _yoast_wpseo_metadesc, focus_keyword)
 - **Категория "prompts"**: Все статьи автоматически публикуются в специальной категории
 - **Черновики по умолчанию**: Безопасная публикация в статусе draft для проверки
-- **Флаг --publish-wp**: Опциональная активация публикации через командную строку
+- **Флаг --no-publish**: Опциональное отключение публикации через командную строку
 - **Полное тестирование**: Готовые скрипты для тестирования интеграции
 
-### 🎛️ Flexible Multi-Provider Model System
+### 🎛️ Command Line Model Control System
+- **Full Pipeline Control**: Override models for all 3 stages with dedicated flags
 - **Multiple LLM Providers**: Support for DeepSeek and OpenAI (via OpenRouter)
-- **Command Line Model Selection**: Override models with `--extract-model` and `--generate-model` flags
-- **Per-Function Configuration**: Different models for extraction vs generation tasks
+- **Granular Configuration**: Separate control over extraction, generation, and editorial stages
 - **Easy Provider Switching**: Automatic client selection based on model choice
 - **Backward Compatibility**: All functions default to `deepseek-reasoner`
+
+#### Available Command Line Flags:
+- `--extract-model`: Control prompt extraction stage (LLM-1)
+- `--generate-model`: Control article generation stage (LLM-2)
+- `--editorial-model`: Control editorial review and cleanup stage (LLM-3) - defaults to `deepseek-reasoner`
+- `--provider`: Force specific provider (deepseek or openrouter)
+- `--no-publish`: Skip WordPress publication (by default articles are published automatically)
 
 ### 🔗 OpenRouter Integration
 - **OpenAI Models**: Access to GPT-4o, GPT-4o-mini, GPT-4-turbo via OpenRouter
@@ -89,17 +96,20 @@ This project is an automated pipeline for generating high-quality content based 
 
 4.  **Run the Pipeline:**
     ```bash
-    # Default pipeline (generation only)
+    # Default pipeline (generation and auto-publish to WordPress)
     python main.py "Your topic of interest"
     
-    # Generate and publish to WordPress
-    python main.py "Your topic" --publish-wp
+    # Generate without WordPress publication
+    python main.py "Your topic" --no-publish
     
     # Use OpenAI GPT-4o-mini for article generation
     python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
     
-    # Generate with custom model and publish
-    python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o" --publish-wp
+    # Full pipeline with custom models for all stages (auto-publish by default)
+    python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o" --editorial-model "openai/gpt-4o-mini"
+    
+    # Use different editorial model (default is deepseek-reasoner)
+    python main.py "Your topic" --editorial-model "openai/gpt-4o"
     
     # See all available options
     python main.py --help
@@ -107,7 +117,7 @@ This project is an automated pipeline for generating high-quality content based 
 
 5.  **Find the Results:**
     -   All results, including intermediate artifacts and final cleaned articles, will be saved in the `output/` directory, organized by topic.
-    -   **WordPress Publication**: If `--publish-wp` is used, publication results are saved in `wordpress_publication_result.json`
+    -   **WordPress Publication**: By default, publication results are saved in `wordpress_publication_result.json` (use `--no-publish` to disable)
     -   **LLM Logs**: Request/response logs are saved in `llm_requests/` and `llm_responses_raw/` subdirectories.
     -   **Token Reports**: Token usage reports are automatically generated as `token_usage_report.json` with detailed analytics.
 
@@ -122,7 +132,7 @@ The pipeline consists of 8 automated stages:
 5. **Cleaning**: Clean and optimize content for LLM processing
 6. **Prompt Extraction**: Extract prompts from articles using LLM
 7. **Article Generation**: Generate complete WordPress article using LLM
-8. **WordPress Publication** (Optional): Publish article to WordPress with SEO metadata
+8. **WordPress Publication** (Default): Automatically publish article to WordPress with SEO metadata
 
 ## LLM Interaction Logging & Token Tracking
 

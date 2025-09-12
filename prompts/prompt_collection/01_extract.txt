@@ -36,7 +36,7 @@ Selection rubric (internal; do NOT output scores):
 6. **Reusability & portability**: works across different scenarios
 7. **Safety/Robustness**: guardrails, failure handling, error prevention
 
-Always synthesize prompt with sections: Role, goal, context, style, Constraints. Also variable fields put into {}.
+Always synthesize prompt with sections: Role, goal, context, style, Constraints. Also variable fields put into {}. Final prompt must be at least 1000 symbols. 
 
 PROMPT ENHANCEMENT REQUIREMENT:
 For each discovered prompt in the source material, analyze its completeness using the RGCSC framework (Role-Goal-Context-Style-Constraints) and enhance it if necessary:
@@ -51,7 +51,7 @@ MANDATORY RGCSC ENFORCEMENT:
 EVERY SINGLE extracted prompt MUST contain ALL 5 RGCSC elements. NO EXCEPTIONS.
 
 REQUIRED STRUCTURE FOR EVERY PROMPT:
-- Role: "System: You are a [specific role]..." (must be domain-specific)
+- Role: "You are a [specific role]..." (must be domain-specific)
 - Goal: Clear, measurable objective with specific deliverables (e.g., "Generate 5 distinct...")
 - Context: Target audience, platform, use case details (e.g., "for {platform} targeting {audience}")
 - Style: Explicit tone/manner instructions (e.g., "Style: Use a professional, engaging tone...")
@@ -88,8 +88,8 @@ Constraints: Each idea must be executable with a smartphone and basic editing so
 "Help me brainstorm content"
 
 **AFTER (enhanced with RGCSC):**
-"System: You are a creative brainstorming assistant specialized in {content_type}.
-User: I need help generating {number} innovative content concepts for {topic/industry}. My target audience is {audience_description} and my goal is {specific_outcome}.
+"Role: You are a creative brainstorming assistant specialized in {content_type}.
+Goal: I need help generating {number} innovative content concepts for {topic/industry}. My target audience is {audience_description} and my goal is {specific_outcome}.
 Provide each concept with:
 - Clear title and hook
 - Main value proposition
@@ -116,8 +116,9 @@ COMMON ENHANCEMENT FAILURES TO AVOID:
 User: Suggest 5 video ideas for contractors."
 
 ✅ CORRECT (complete RGCSC):
-"System: You are a content strategist specializing in video marketing for construction businesses.
-User: Generate 5 video content ideas for {platform} that showcase contractor expertise and attract homeowner clients. For each idea, provide a concept overview and primary viewer benefit.
+"Role: You are a content strategist specializing in video marketing for construction businesses.
+Goal: Generate 5 video content ideas for {platform} that showcase contractor expertise and attract homeowner clients. For each idea, provide a concept overview and primary viewer benefit.
+Context: For {platform} vertical short-form (9:16) videos, 30–60s, in {language}, targeting local homeowners in {service_area} researching {services}; objective: credibility + inbound leads; KPIs: ≥25% watch-through, ≥3% inquiry CTR; assets: smartphone, tripod, basic mic, natural light; content patterns: before/after, 1-minute walkthrough, quote/cost factors, code/safety tip, testimonial; show geo overlay (city/neighborhood), license/insurance badge, on-screen captions, clear CTA to {preferred_contact}; film on active jobsites/showroom; avoid revealing private addresses, minors, or unsafe tool use; obtain client consent.
 Style: Use a professional, authoritative tone that builds trust.
 Constraints: Ideas must be feasible for small contractors with basic equipment and target local homeowners."
 
@@ -126,8 +127,9 @@ Constraints: Ideas must be feasible for small contractors with basic equipment a
 User: Help me brainstorm content for my channel."
 
 ✅ CORRECT (complete RGCSC):
-"System: You are a creative content strategist specializing in video marketing.
-User: Generate 10 creative video ideas for my {niche} channel targeting {audience}. Include titles, concepts, and key visual elements.
+"Role: You are a creative content strategist specializing in video marketing.
+Goal: Generate 10 creative video ideas for my {niche} channel targeting {audience}. Include titles, concepts, and key visual elements.
+Context: For {platform} vertical short-form (9:16) videos, 30–60s, in {language}, for {audience} in {region} within the {niche} niche; objective: awareness/engagement; KPIs: ≥30% watch-through, ≥5% saves; assets: smartphone, natural light, free editor; include 2–3s hook, on-screen captions, visual demo, CTA to {desired_action}; avoid copyrighted music and risky claims.
 Style: Use an enthusiastic, creative tone. Format as numbered list.
 Constraints: Each idea must be feasible for solo creators with basic equipment."
 
