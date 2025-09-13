@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import time
 from datetime import datetime
 from typing import List, Dict, Any
 from dotenv import load_dotenv
@@ -8,7 +9,7 @@ import openai
 
 from src.logger_config import logger
 from src.token_tracker import TokenTracker
-from src.config import LLM_MODELS, DEFAULT_MODEL, LLM_PROVIDERS, get_provider_for_model
+from src.config import LLM_MODELS, DEFAULT_MODEL, LLM_PROVIDERS, get_provider_for_model, FALLBACK_MODELS, RETRY_CONFIG
 
 # Загружаем переменные среды
 load_dotenv()
@@ -252,6 +253,71 @@ def _load_and_prepare_messages(article_type: str, prompt_name: str, replacements
         logger.error(f"Prompt file not found: {path}")
         raise
 
+
+def _make_llm_request_with_retry(stage_name: str, model_name: str, messages: list,
+                                token_tracker: TokenTracker = None, **kwargs) -> tuple:
+    """
+    Makes LLM request with retry logic and fallback models.
+
+    Returns:
+        tuple: (response_obj, actual_model_used)
+    """
+    primary_model = model_name or LLM_MODELS.get(stage_name, DEFAULT_MODEL)
+    fallback_model = FALLBACK_MODELS.get(stage_name)
+
+    models_to_try = [primary_model]
+    if fallback_model and fallback_model != primary_model:
+        models_to_try.append(fallback_model)
+
+    for model_index, current_model in enumerate(models_to_try):
+        model_label = "primary" if model_index == 0 else "fallback"
+        logger.info(f"🤖 Using {model_label} model for {stage_name}: {current_model}")
+
+        for attempt in range(RETRY_CONFIG["max_attempts"]):
+            try:
+                client = get_llm_client(current_model)
+
+                response_obj = client.chat.completions.create(
+                    model=current_model,
+                    messages=messages,
+                    **kwargs
+                )
+
+                # Log successful model usage
+                logger.info(f"✅ Model {current_model} responded successfully (attempt {attempt + 1})")
+
+                # Track token usage with actual model info
+                if token_tracker and response_obj.usage:
+                    provider = get_provider_for_model(current_model)
+                    token_tracker.add_usage(
+                        stage=stage_name,
+                        usage=response_obj.usage,
+                        extra_metadata={
+                            "model": current_model,
+                            "provider": provider,
+                            "model_type": model_label,
+                            "attempt": attempt + 1
+                        }
+                    )
+
+                return response_obj, current_model
+
+            except Exception as e:
+                logger.warning(f"❌ Model {current_model} failed (attempt {attempt + 1}): {e}")
+
+                # If not the last attempt, wait before retrying
+                if attempt < RETRY_CONFIG["max_attempts"] - 1:
+                    delay = RETRY_CONFIG["delays"][attempt]
+                    logger.info(f"⏳ Waiting {delay}s before retry...")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"💥 Model {current_model} exhausted all {RETRY_CONFIG['max_attempts']} attempts")
+
+    # All models failed
+    logger.error(f"🚨 All models failed for stage {stage_name}. Models tried: {models_to_try}")
+    raise Exception(f"All models failed for {stage_name}: {models_to_try}")
+
+
 def extract_prompts_from_article(article_text: str, topic: str, base_path: str = None, 
                                  source_id: str = None, token_tracker: TokenTracker = None,
                                  model_name: str = None) -> List[Dict]:
@@ -272,31 +338,17 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
             "01_extract", 
             {"topic": topic, "article_text": article_text}
         )
-        # Use provided model or default from config
-        model_to_use = model_name or LLM_MODELS.get("extract_prompts", DEFAULT_MODEL)
-        client = get_llm_client(model_to_use)
-        
-        response = client.chat.completions.create(
-            model=model_to_use,
+
+        # Use new retry system
+        response, actual_model = _make_llm_request_with_retry(
+            stage_name="extract_prompts",
+            model_name=model_name,
             messages=messages,
+            token_tracker=token_tracker,
             temperature=0.3,
             timeout=90
         )
         content = response.choices[0].message.content
-        
-        # Track token usage
-        if token_tracker and response.usage:
-            provider = get_provider_for_model(model_to_use)
-            token_tracker.add_usage(
-                stage="extract_prompts",
-                usage=response.usage,
-                source_id=source_id,
-                extra_metadata={
-                    "topic": topic, 
-                    "model": model_to_use,
-                    "provider": provider
-                }
-            )
         
         # Сохраняем запрос и ответ для отладки
         if base_path:
@@ -306,7 +358,7 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
                 messages=messages,
                 response=content,
                 request_id=source_id or "single",
-                extra_params={"response_format": "json_object", "topic": topic, "model": model_to_use}
+                extra_params={"response_format": "json_object", "topic": topic, "model": actual_model}
             )
         
         parsed_json = _parse_json_from_response(content)
@@ -339,33 +391,19 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
             "01_generate_wordpress_article",
             {"topic": topic, "prompts_json": json.dumps(prompts, indent=2)}
         )
-        # Use provided model or default from config
-        model_to_use = model_name or LLM_MODELS.get("generate_article", DEFAULT_MODEL)
-        client = get_llm_client(model_to_use)
-        
-        response_obj = client.chat.completions.create(
-            model=model_to_use,
+
+        # Use new retry system
+        response_obj, actual_model = _make_llm_request_with_retry(
+            stage_name="generate_article",
+            model_name=model_name,
             messages=messages,
+            token_tracker=token_tracker,
             temperature=0.3,
             timeout=300,  # Increased timeout to 5 minutes
             response_format={"type": "json_object"}  # Enforce JSON response
         )
         response = response_obj.choices[0].message.content
-        
-        # Track token usage
-        if token_tracker and response_obj.usage:
-            provider = get_provider_for_model(model_to_use)
-            token_tracker.add_usage(
-                stage="generate_wordpress_article",
-                usage=response_obj.usage,
-                extra_metadata={
-                    "topic": topic, 
-                    "input_prompts_count": len(prompts),
-                    "model": model_to_use,
-                    "provider": provider
-                }
-            )
-        
+
         # Сохраняем запрос и ответ для отладки
         if base_path:
             save_llm_interaction(
@@ -374,11 +412,11 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
                 messages=messages,
                 response=response,
                 extra_params={
-                    "topic": topic, 
+                    "topic": topic,
                     "input_prompts_count": len(prompts),
                     "purpose": "generate_wordpress_article",
                     "response_format": "json_object",
-                    "model": model_to_use
+                    "model": actual_model
                 }
             )
         
@@ -430,32 +468,18 @@ def editorial_review(raw_response: str, topic: str, base_path: str = None,
                 "topic": topic
             }
         )
-        
-        # Use provided model or default from config
-        model_to_use = model_name or LLM_MODELS.get("editorial_review", DEFAULT_MODEL)
-        client = get_llm_client(model_to_use)
-        
-        response_obj = client.chat.completions.create(
-            model=model_to_use,
+
+        # Use new retry system
+        response_obj, actual_model = _make_llm_request_with_retry(
+            stage_name="editorial_review",
+            model_name=model_name,
             messages=messages,
+            token_tracker=token_tracker,
             temperature=0.2,  # Lower temperature for more consistent editing
             timeout=300  # 5 minute timeout
         )
         response = response_obj.choices[0].message.content
-        
-        # Track token usage
-        if token_tracker and response_obj.usage:
-            provider = get_provider_for_model(model_to_use)
-            token_tracker.add_usage(
-                stage="editorial_review",
-                usage=response_obj.usage,
-                extra_metadata={
-                    "topic": topic,
-                    "model": model_to_use,
-                    "provider": provider
-                }
-            )
-        
+
         # Save LLM interaction for debugging
         if base_path:
             save_llm_interaction(
@@ -466,7 +490,7 @@ def editorial_review(raw_response: str, topic: str, base_path: str = None,
                 extra_params={
                     "topic": topic,
                     "purpose": "editorial_review_and_cleanup",
-                    "model": model_to_use
+                    "model": actual_model
                 }
             )
         
@@ -532,7 +556,7 @@ def editorial_review(raw_response: str, topic: str, base_path: str = None,
                             
                         # Extract other fields
                         for field in ["excerpt", "slug", "_yoast_wpseo_title", "_yoast_wpseo_metadesc", "image_caption", "focus_keyword"]:
-                            field_match = re.search(f'"{field}":\s*"([^"]*(?:\\\\.[^"]*)*)"', response)
+                            field_match = re.search(f'"{field}":\\s*"([^"]*(?:\\\\.[^"]*)*)"', response)
                             if field_match:
                                 extracted_data[field] = field_match.group(1).replace('\\"', '"')
                         

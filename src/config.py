@@ -49,9 +49,23 @@ WORDPRESS_STATUS = os.getenv("WORDPRESS_STATUS", "draft")
 # --- LLM Models Configuration ---
 # Models for different pipeline stages
 LLM_MODELS = {
-    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",      # Model for prompt extraction from articles
-    "generate_article": "deepseek-reasoner",                             # Model for WordPress article generation (switched from gemini)
-    "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",    # Model for editorial review and cleanup (switched from deepseek)
+    "extract_prompts": "deepseek/deepseek-chat-v3.1:free",              # FREE Model for prompt extraction from articles
+    "generate_article": "deepseek/deepseek-chat-v3.1:free",             # FREE Model for WordPress article generation
+    "editorial_review": "deepseek/deepseek-chat-v3.1:free",             # FREE Model for editorial review and cleanup
+}
+
+# Fallback models for each stage (used when primary model fails)
+FALLBACK_MODELS = {
+    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",    # Fallback to Gemini 2.5
+    "generate_article": "deepseek-reasoner",                            # Fallback to paid DeepSeek if free fails
+    "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",   # Fallback to Gemini 2.5
+}
+
+# Retry configuration for LLM requests
+RETRY_CONFIG = {
+    "max_attempts": 3,
+    "delays": [2, 5, 10],  # seconds between retries
+    "use_fallback_on_final_failure": True
 }
 
 # Default model if no specific model is configured
@@ -76,7 +90,8 @@ LLM_PROVIDERS = {
             "openai/gpt-4-turbo",
             "openai/gpt-3.5-turbo",
             "google/gemini-2.0-flash-001",
-            "google/gemini-2.5-flash-lite-preview-06-17"
+            "google/gemini-2.5-flash-lite-preview-06-17",
+            "deepseek/deepseek-chat-v3.1:free"
         ],
         "extra_headers": {
             "HTTP-Referer": "https://github.com/your-repo/content-generator",
