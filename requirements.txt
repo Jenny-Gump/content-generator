@@ -3,3 +3,4 @@ aiohttp
 openai
 requests
 transliterate
+psutil
