@@ -72,38 +72,41 @@ LLM_PROVIDERS = {
 Add the following keys to your `.env` file:
 
 ```bash
-# Required for Google Gemini models via OpenRouter (PRIMARY)
+# Primary key for FREE DeepSeek models + premium fallbacks
 OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx
 
 # Required for Firecrawl search/scraping
 FIRECRAWL_API_KEY=fc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# Optional - for alternative models
+# Optional - for direct DeepSeek access (fallback scenarios only)
 DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-**Note**: Only the keys for providers you plan to use are required.
+**Note**: OPENROUTER_API_KEY is the main key providing both FREE DeepSeek models and premium fallbacks.
 
 ## 🚀 Command Line Usage
 
 ### Basic Usage
 
 ```bash
-# Use default models (Google Gemini 2.5 for all tasks)
+# Use default models (100% FREE DeepSeek for all tasks)
 python main.py "Your topic"
 ```
 
 ### Model Overrides
 
 ```bash
-# Use OpenAI GPT-4o-mini for article generation only
-python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
+# Override to premium model for article generation (from free default)
+python main.py "Your topic" --generate-model "deepseek-reasoner"
 
-# Use DeepSeek Reasoner for editorial review only
-python main.py "Your topic" --editorial-model "deepseek-reasoner"
+# Use Gemini 2.5 for article generation instead of free DeepSeek
+python main.py "Your topic" --generate-model "google/gemini-2.5-flash-lite-preview-06-17"
 
-# Full pipeline with custom models for all 3 stages
-python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o" --editorial-model "deepseek-reasoner"
+# Full pipeline with premium models for all 3 stages (instead of free defaults)
+python main.py "Your topic" --extract-model "deepseek-reasoner" --generate-model "google/gemini-2.5-flash-lite-preview-06-17" --editorial-model "deepseek-reasoner"
+
+# Force free models for all stages (already default, but explicit)
+python main.py "Your topic" --extract-model "deepseek/deepseek-chat-v3.1:free" --generate-model "deepseek/deepseek-chat-v3.1:free" --editorial-model "deepseek/deepseek-chat-v3.1:free"
 
 # See all available options
 python main.py --help
@@ -115,7 +118,7 @@ python main.py --help
 - `--generate-model MODEL` - Override model for article generation (LLM-2)  
 - `--editorial-model MODEL` - Override model for editorial review and cleanup (LLM-3)
 - `--provider {deepseek,openrouter}` - Specify provider preference
-- `--publish-wp` - Enable WordPress publication
+- `--no-publish` - Skip WordPress publication (articles published by default)
 
 ## 📖 Available Models
 
@@ -127,11 +130,11 @@ python main.py --help
 | `deepseek-reasoner` | 💰 Paid | Most capable with reasoning | Complex tasks, fallback choice |
 | `deepseek-chat` | 💰 Paid | Faster conversational model | Quick extraction, speed-critical tasks |
 
-### Google Gemini Models (via OpenRouter) ⭐ **PRIMARY**
+### Google Gemini Models (via OpenRouter) - Fallback Models
 
 | Model | Max Tokens | Description | Best For |
 |-------|------------|-------------|----------|
-| `google/gemini-2.5-flash-lite-preview-06-17` | **65,535** | Ultra-fast, high-capacity model | **Default choice - no truncation** |
+| `google/gemini-2.5-flash-lite-preview-06-17` | **65,535** | Ultra-fast, high-capacity model | **Fallback for extraction/review** |
 | `google/gemini-2.0-flash-001` | 8,192 | Fast multimodal model | ⚠️ Limited for long articles |
 
 ### OpenAI Models (via OpenRouter)
@@ -154,25 +157,25 @@ LLM_MODELS = {
 }
 ```
 
-### Example 2: Mixed High-Performance Setup  
+### Example 2: Premium DeepSeek Setup
 ```python
 LLM_MODELS = {
-    "extract_prompts": "deepseek-reasoner",     # Thorough extraction with reasoning (LLM-1)
-    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17",  # Large output capacity (LLM-2)
-    "editorial_review": "deepseek-reasoner",    # Deep reasoning for cleanup (LLM-3)
+    "extract_prompts": "deepseek-reasoner",     # Premium reasoning extraction (LLM-1)
+    "generate_article": "deepseek-reasoner",    # Premium reasoning generation (LLM-2)
+    "editorial_review": "deepseek-reasoner",    # Premium reasoning cleanup (LLM-3)
 }
 ```
 
-### Example 3: Alternative Models Setup
+### Example 3: Mixed Quality Setup
 ```python
 LLM_MODELS = {
-    "extract_prompts": "openai/gpt-4o-mini",    # Fast OpenAI for extraction (LLM-1)
-    "generate_article": "openai/gpt-4o",       # Premium OpenAI for generation (LLM-2)
-    "editorial_review": "openai/gpt-4o-mini",  # Balanced editing quality (LLM-3)
+    "extract_prompts": "deepseek/deepseek-chat-v3.1:free",            # FREE extraction (LLM-1)
+    "generate_article": "google/gemini-2.5-flash-lite-preview-06-17", # Premium generation (LLM-2)
+    "editorial_review": "deepseek-reasoner",                          # Premium editing (LLM-3)
 }
 ```
 
-### Example 4: Premium Override Setup 💰
+### Example 4: Fallback Override Setup 💰
 ```python
 LLM_MODELS = {
     "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",   # Premium extraction (LLM-1)
@@ -181,13 +184,16 @@ LLM_MODELS = {
 }
 ```
 
-### Example 5: Command Line Editorial Override
+### Example 5: Command Line Premium Overrides
 ```bash
-# Use DeepSeek Reasoner specifically for editorial review
+# Use premium DeepSeek Reasoner for editorial review (from free default)
 python main.py "AI tools for content creators" --editorial-model "deepseek-reasoner"
 
-# Mixed providers with editorial focus
-python main.py "prompt engineering" --generate-model "openai/gpt-4o" --editorial-model "deepseek-reasoner"
+# Premium generation with free extraction/review
+python main.py "prompt engineering" --generate-model "google/gemini-2.5-flash-lite-preview-06-17"
+
+# Full premium pipeline override
+python main.py "content strategy" --extract-model "deepseek-reasoner" --generate-model "google/gemini-2.5-flash-lite-preview-06-17" --editorial-model "deepseek-reasoner"
 ```
 
 ## 🔄 Retry Logic & Fallback System
@@ -203,9 +209,9 @@ The system provides robust error handling with automatic retries and model fallb
 If primary model fails after all retries, system automatically switches to fallback:
 ```python
 FALLBACK_MODELS = {
-    "extract_prompts": "openai/gpt-4o-mini",
-    "generate_article": "deepseek-reasoner",  # Paid fallback for free model
-    "editorial_review": "openai/gpt-4o-mini",
+    "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",    # Fallback to Gemini 2.5
+    "generate_article": "deepseek-reasoner",                            # Paid DeepSeek for free fallback
+    "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",   # Fallback to Gemini 2.5
 }
 ```
 
@@ -360,14 +366,15 @@ ls output/Your_Topic/*/llm_responses_raw/
 
 ## 📈 Best Practices
 
-1. **Start with defaults** - Use the new free + premium setup for cost efficiency
-2. **Leverage free models** - `deepseek/deepseek-chat-v3.1:free` is excellent for article generation
-3. **Monitor retry patterns** - Check logs for frequent failures and adjust models
-4. **Plan for fallbacks** - Ensure fallback models have valid API keys
-5. **Match task complexity** - Use premium models for extraction/review, free for generation
-6. **Monitor costs** - Check token usage reports, especially for paid fallbacks
-7. **Test retry scenarios** - Simulate failures to verify fallback behavior
-8. **Consider latency** - Free models may have higher latency during peak usage
+1. **Start with 100% free defaults** - Use the all-free DeepSeek setup for maximum cost efficiency
+2. **Monitor free model performance** - Check logs for rate limits and quality issues
+3. **Strategic premium overrides** - Use premium models only when free models consistently fail
+4. **Plan fallback costs** - Ensure fallback models have valid API keys and budget
+5. **Monitor retry patterns** - Free models may hit rate limits more often
+6. **Track actual costs** - Most operations should be FREE, monitor premium fallback usage
+7. **Test retry scenarios** - Verify fallback activation works properly
+8. **Consider peak usage times** - Free models may have higher latency during busy periods
+9. **Quality vs Cost tradeoff** - Free models are surprisingly good for most tasks
 
 ---
 

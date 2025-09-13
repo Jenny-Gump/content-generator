@@ -4,31 +4,39 @@ This document provides a detailed, step-by-step breakdown of the simplified cont
 
 **MAJOR UPDATE**: The pipeline has been significantly simplified to focus on WordPress article generation for prompt collections. We now have a streamlined 7-stage process that ends with a complete WordPress-ready article.
 
-## 🎛️ Multi-Provider LLM System (September 2025)
+## 🎛️ 100% FREE Models + Reliability System (September 13, 2025)
 
-Major architectural upgrade for flexible model selection and provider support:
+Major upgrade to completely free operation with robust fallback system:
 
-### **Multi-Provider Architecture**
-- **DeepSeek Provider**: Primary provider with reasoning capabilities (`deepseek-reasoner`, `deepseek-chat`)
-- **OpenRouter Provider**: Gateway to OpenAI models (`openai/gpt-4o`, `openai/gpt-4o-mini`, etc.)
-- **Dynamic Client Selection**: Automatic provider detection based on model name
-- **Cached Client Management**: Performance-optimized client reuse
+### **100% FREE by Default**
+- **Primary Models**: `deepseek/deepseek-chat-v3.1:free` for ALL pipeline stages (extraction, generation, editorial)
+- **Zero Token Costs**: Normal operations run completely free via OpenRouter
+- **Premium Fallbacks**: Automatic fallback to Gemini 2.5 and paid DeepSeek only on free model failures
+- **3-Level Retry System**: Each model gets 3 attempts (2s → 5s → 10s delays) before fallback activation
+
+### **Multi-Provider Reliability Architecture**
+- **OpenRouter Provider**: Primary gateway for FREE DeepSeek models + premium fallbacks
+- **DeepSeek Provider**: Direct access for paid models in fallback scenarios
+- **Automatic Failover**: Seamless switching between free and premium models
+- **Enhanced Logging**: Detailed tracking of retry attempts and model usage
 
 ### **Command Line Model Override**
-- **`--extract-model`**: Override model for prompt extraction stage
-- **`--generate-model`**: Override model for article generation stage
-- **Real-time Logging**: Model overrides are logged during pipeline execution
+- **`--extract-model`**: Override FREE default for prompt extraction stage (LLM-1)
+- **`--generate-model`**: Override FREE default for article generation stage (LLM-2)
+- **`--editorial-model`**: Override FREE default for editorial review stage (LLM-3)
+- **Real-time Logging**: Model usage, retry attempts, and fallback activation tracking
 
-### **Enhanced Token Tracking**
-- **Provider Metadata**: Track which provider/model was used for each request
-- **Multi-Provider Reports**: Token usage breakdown by provider in session summaries
-- **Model-Specific Analytics**: Detailed usage statistics per model type
+### **Enhanced Token & Cost Tracking**
+- **Free vs Premium Analytics**: Track when FREE models are used vs premium fallbacks
+- **Retry Monitoring**: Count retry attempts and success rates per model
+- **Zero Cost Validation**: Verify that most operations remain FREE
+- **Fallback Cost Tracking**: Monitor premium model usage for budget planning
 
 **Benefits**:
-- 🎯 **Task-Optimized Models**: Use fast models for extraction, powerful models for generation
-- 💰 **Cost Control**: Mix free DeepSeek models with paid OpenAI models strategically
-- ⚡ **Performance Tuning**: Choose optimal speed/quality tradeoff for each stage
-- 📊 **Comprehensive Tracking**: Full visibility into multi-provider token usage
+- 🆓 **Zero Operating Costs**: Normal operations cost nothing with free DeepSeek models
+- 🔄 **Reliability First**: 3 retries + fallbacks ensure pipeline always completes
+- 💰 **Cost Control**: Premium models only activated on free model failures
+- 📊 **Complete Transparency**: Track free vs premium usage with retry analytics
 
 ## 🔧 Content Cleaning Optimization (September 2025)
 
@@ -284,14 +292,14 @@ All LLM interactions are automatically logged for debugging:
 - 5 очищенных статей (`cleaned_content`)
 - Промпт-шаблон `prompts/prompt_collection/01_extract.txt` с тематической фильтрацией
 - `topic` для контекстуализации и фильтрации извлечения
-- DeepSeek R1 Reasoner API credentials
+- FREE DeepSeek Chat v3.1 API credentials (via OpenRouter)
 
 **🎯 ЦЕЛЬ:** Извлечь только релевантные промпты по теме `{topic}` с помощью Chain of Thought reasoning
 
 **⚙️ ФУНКЦИИ:**
 - `src/llm_processing.py` → `extract_prompts_from_article()` - главная функция
 - `_load_and_prepare_messages()` - подготовка промпт-шаблона
-- `client.chat_completion()` - вызов DeepSeek R1 API
+- `client.chat_completion()` - вызов FREE DeepSeek API via OpenRouter
 - `_parse_json_from_response()` - робастный JSON парсинг (4 стратегии)
 - `save_llm_interaction()` - 🆕 логирование запросов/ответов
 
@@ -300,8 +308,8 @@ All LLM interactions are automatically logged for debugging:
    - Загружается шаблон `01_extract.txt` с тематической фильтрацией
    - Подставляется `{topic}` и `{article_text}`
    - **Тематическая фильтрация:** LLM извлекает только промпты релевантные `{topic}`
-   - Отправляется к DeepSeek R1 с `response_format: json_object`
-2. **LLM анализ:** Chain of Thought извлечение с фокусом на теме пользователя
+   - Отправляется к FREE DeepSeek с `response_format: json_object`
+2. **LLM анализ:** Chain of Thought извлечение с фокусом на теме пользователя (FREE модель)
 3. **Парсинг ответа:** 4-этапная стратегия обработки JSON
 4. **🆕 Логирование:** Сохранение запроса/ответа для отладки
 
@@ -329,19 +337,19 @@ All LLM interactions are automatically logged for debugging:
 - Все извлеченные промпты из этапа 6 (обычно 15-30 промптов)
 - Промпт-шаблон `prompts/prompt_collection/01_generate_wordpress_article.txt`
 - `topic` из командной строки для персонализации
-- Gemini 2.5 Flash Lite API credentials
+- FREE DeepSeek Chat v3.1 API credentials (via OpenRouter)
 
 **🎯 ЦЕЛЬ:** Создать черновую WordPress статью на русском языке с улучшенными промптами и экспертными комментариями
 
 **⚙️ ФУНКЦИИ:**
 - `src/llm_processing.py` → `generate_wordpress_article()` - главная функция
-- Gemini 2.5 Flash Lite для создания высококачественного контента
+- FREE DeepSeek для создания высококачественного контента с fallback на premium модели
 - HTML форматирование совместимое с WordPress
 - SEO-оптимизация для российской аудитории
 
 **🔄 ПРОЦЕСС:**
 1. **Подготовка данных:** Все промпты из `all_prompts.json` передаются в LLM
-2. **LLM генерация:** Gemini 2.5 Flash Lite создает:
+2. **LLM генерация:** FREE DeepSeek создает:
    - Профессиональное введение на тему промптов для {topic}
    - Секцию с основами создания промптов (Role, Context, Main goal, Style, Constraints + CoT)
    - Коллекцию улучшенных промптов с экспертными описаниями
@@ -392,18 +400,18 @@ All LLM interactions are automatically logged for debugging:
 - Черновая структура `wordpress_data.json` из этапа 7 (с блочными тегами)
 - `topic` пользователя для тематической фокусировки
 - Промпт-шаблон `prompts/prompt_collection/02_editorial_review.txt`
-- Gemini 2.5 Flash Lite API credentials
+- FREE DeepSeek Chat v3.1 API credentials (via OpenRouter)
 
 **🎯 ЦЕЛЬ:** Профессиональная редактура и очистка статьи для финальной публикации с фокусом на теме пользователя
 
 **⚙️ ФУНКЦИИ:**
 - `src/llm_processing.py` → `editorial_review()` - главная функция редакторской обработки
-- Gemini 2.5 Flash Lite с низкой температурой (0.2) для стабильного редактирования
+- FREE DeepSeek с низкой температурой (0.2) для стабильного редактирования
 - Робастный JSON парсинг с обработкой ошибок
 
 **🔄 ПРОЦЕСС:**
 1. **Загрузка промпта:** Используется специальный промпт для редактора WordPress статей с передачей `{topic}`
-2. **LLM редактура:** Gemini 2.5 Flash Lite выполняет:
+2. **LLM редактура:** FREE DeepSeek выполняет:
    - Полную очистку от WordPress блочных тегов (`<!-- wp:paragraph -->`, `<!-- /wp:code -->` и т.д.)
    - Переформатирование промптов в читаемый вид внутри `<pre><code>` тегов
    - Улучшение структуры контента (таблицы, списки, абзацы)
@@ -544,7 +552,7 @@ python create_prompts_category.py
 4. **Профессиональная редактура**: Этап 8 обеспечивает качество публикации редактором-ИИ
 5. **Полная прозрачность**: Комплексное логирование всех LLM и WordPress взаимодействий
 6. **Русскоязычный фокус**: Специализация на российскую аудиторию и сайт ailynx.ru
-7. **Gemini-powered**: Gemini 2.5 Flash Lite обеспечивает высококачественную генерацию и редактуру
+7. **100% FREE-powered**: FREE DeepSeek models обеспечивают высококачественную генерацию и редактуру с нулевой стоимостью
 8. **SEO-оптимизация**: Автоматическое заполнение Yoast SEO полей для поисковых систем
 9. **Безопасная публикация**: Статьи создаются в статусе draft для проверки перед публикацией
 10. **Практическая ценность**: Фокус на реальных случаях использования и экспертных рекомендациях

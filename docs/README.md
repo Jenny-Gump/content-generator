@@ -4,6 +4,15 @@ This project is an automated pipeline for generating high-quality content based 
 
 ## Latest Updates (September 2025)
 
+### 🆓 **100% FREE MODELS + RELIABILITY SYSTEM** (NEW - September 13, 2025)
+- **FREE DeepSeek Models**: All pipeline stages now use `deepseek/deepseek-chat-v3.1:free` by default via OpenRouter
+- **Zero Token Costs**: Normal operations run completely free with automatic fallbacks to premium models only on failures
+- **3-Level Retry System**: Automatic retries with exponential backoff (2s → 5s → 10s)
+- **Smart Fallbacks**: Primary free models with premium fallbacks (Gemini 2.5, paid DeepSeek)
+- **Enhanced Logging**: Detailed model usage tracking with retry attempt counts
+- **Python 3.13 Compatible**: Fixed all SyntaxWarnings for latest Python versions
+- **Streamlined Batch Processing**: Removed WordPress verification delays for faster processing
+
 ### 🎯 RGCSC Prompt Enhancement Framework (NEW!)
 - **Intelligent Prompt Analysis**: LLM-1 теперь анализирует каждый найденный промпт по фреймворку RGCSC (Role-Goal-Context-Style-Constraints)
 - **Автоматическое обогащение**: Неполные промпты автоматически дополняются недостающими элементами структуры
@@ -32,29 +41,31 @@ This project is an automated pipeline for generating high-quality content based 
 
 ### 🎛️ Command Line Model Control System
 - **Full Pipeline Control**: Override models for all 3 stages with dedicated flags
-- **Multiple LLM Providers**: Support for DeepSeek and OpenAI (via OpenRouter)
-- **Granular Configuration**: Separate control over extraction, generation, and editorial stages
-- **Easy Provider Switching**: Automatic client selection based on model choice
-- **Backward Compatibility**: All functions default to `deepseek-reasoner`
+- **100% FREE Default**: All stages default to `deepseek/deepseek-chat-v3.1:free`
+- **Multiple LLM Providers**: Support for DeepSeek (paid), OpenRouter (free DeepSeek + premium models)
+- **Smart Fallbacks**: Automatic failover to premium models (Gemini 2.5, paid DeepSeek) on free model failures
+- **Retry Logic**: 3 automatic attempts with exponential backoff before fallback activation
 
 #### Available Command Line Flags:
-- `--extract-model`: Control prompt extraction stage (LLM-1)
-- `--generate-model`: Control article generation stage (LLM-2)
-- `--editorial-model`: Control editorial review and cleanup stage (LLM-3) - defaults to `deepseek-reasoner`
+- `--extract-model`: Control prompt extraction stage (LLM-1) - defaults to FREE DeepSeek
+- `--generate-model`: Control article generation stage (LLM-2) - defaults to FREE DeepSeek
+- `--editorial-model`: Control editorial review and cleanup stage (LLM-3) - defaults to FREE DeepSeek
 - `--provider`: Force specific provider (deepseek or openrouter)
 - `--no-publish`: Skip WordPress publication (by default articles are published automatically)
 
 ### 🔗 OpenRouter Integration
-- **OpenAI Models**: Access to GPT-4o, GPT-4o-mini, GPT-4-turbo via OpenRouter
-- **Cost Optimization**: Automatic routing and fallback through OpenRouter
-- **Simple Setup**: Just add OPENROUTER_API_KEY to use OpenAI models
+- **FREE DeepSeek Models**: Access to `deepseek/deepseek-chat-v3.1:free` via OpenRouter (ZERO cost!)
+- **Premium Models**: OpenAI (GPT-4o, GPT-4o-mini), Google Gemini 2.5 Flash Lite via OpenRouter
+- **Smart Routing**: Automatic routing between free and premium models based on availability
+- **Single API Key**: Just add OPENROUTER_API_KEY to access both free and premium models
 
-### 💰 Token Tracking System
-- **Comprehensive Token Monitoring**: Track token usage for every LLM request with detailed breakdowns
-- **Session Summaries**: Automatic generation of token usage reports per pipeline run
-- **DeepSeek Integration**: Full support for reasoning tokens and cache information  
-- **Stage-wise Analytics**: Token consumption analysis by pipeline stage
-- **Real-time Logging**: Live token usage monitoring during pipeline execution
+### 💰 Enhanced Token Tracking System
+- **Zero-Cost Monitoring**: Track when FREE vs PREMIUM models are used
+- **Retry Analytics**: Monitor retry attempts and fallback model usage
+- **Model Performance**: Track which models succeed/fail for optimization
+- **Cost Analysis**: Separate tracking for free operations vs premium fallbacks
+- **Session Summaries**: Detailed reports including model types, attempts, and actual costs
+- **Real-time Logging**: Live monitoring with model switching notifications
 
 ### 🔧 Content Cleaning Optimization
 - **Enhanced Firecrawl API Configuration**: Added `excludeTags` and `includeTags` for precise content filtering
@@ -91,8 +102,8 @@ This project is an automated pipeline for generating high-quality content based 
     -   Copy your API keys into the `.env` file:
         ```
         FIRECRAWL_API_KEY=your_firecrawl_key_here
-        DEEPSEEK_API_KEY=your_deepseek_key_here
-        OPENROUTER_API_KEY=your_openrouter_key_here  # Optional for OpenAI models
+        OPENROUTER_API_KEY=your_openrouter_key_here  # MAIN KEY - provides FREE DeepSeek + Premium models
+        DEEPSEEK_API_KEY=your_deepseek_key_here      # Optional - only for fallback scenarios
         ```
 
 3.  **Setup WordPress Integration (Optional):**
@@ -106,27 +117,27 @@ This project is an automated pipeline for generating high-quality content based 
 
 4.  **Run the Pipeline:**
     ```bash
-    # Single topic processing (default with WordPress auto-publish)
+    # Single topic processing (100% FREE + WordPress auto-publish)
     python main.py "Your topic of interest"
-    
-    # Generate without WordPress publication
+
+    # Generate without WordPress publication (still FREE)
     python main.py "Your topic" --no-publish
-    
-    # Use OpenAI GPT-4o-mini for article generation
+
+    # Override to premium models (if you want to pay for higher quality)
+    python main.py "Your topic" --generate-model "deepseek-reasoner"
     python main.py "Your topic" --generate-model "openai/gpt-4o-mini"
-    
-    # Full pipeline with custom models for all stages
-    python main.py "Your topic" --extract-model "deepseek-chat" --generate-model "openai/gpt-4o" --editorial-model "openai/gpt-4o-mini"
-    
-    # BATCH PROCESSING - Process multiple topics from file
+
+    # Maximum FREE mode - all stages use free models
+    python main.py "Your topic" --extract-model "deepseek/deepseek-chat-v3.1:free" \
+                                --generate-model "deepseek/deepseek-chat-v3.1:free" \
+                                --editorial-model "deepseek/deepseek-chat-v3.1:free"
+
+    # BATCH PROCESSING - Process multiple topics (FREE by default)
     python main.py --batch topics_prompts.txt
-    
-    # Batch processing with custom settings
-    python main.py --batch topics_prompts.txt --content-type prompt_collection --resume
-    
+
     # Batch processing without WordPress publication
     python main.py --batch topics_prompts.txt --no-publish
-    
+
     # See all available options
     python main.py --help
     ```
