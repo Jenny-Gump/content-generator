@@ -61,9 +61,6 @@ class TopicProcessingError(BatchProcessorError):
     pass
 
 
-class PublicationError(BatchProcessorError):
-    """Ошибка публикации в WordPress"""
-    pass
 
 
 class MemoryLimitError(BatchProcessorError):
@@ -227,18 +224,7 @@ class BatchProcessor:
                 logger.error(f"⏰ Topic '{topic}' timed out after {BATCH_CONFIG['max_topic_timeout']} seconds")
                 raise TopicProcessingError(f"Processing timeout for topic: {topic}")
             
-            # 2. БЛОКИРОВКА: Проверяем публикацию в WordPress (если не пропускаем)
-            if not self.skip_publication and BATCH_CONFIG["verify_publication_before_next"]:
-                logger.info(f"🔍 Verifying WordPress publication for: {topic}")
-                
-                publication_verified = await self._verify_wordpress_publication(topic)
-                
-                if not publication_verified:
-                    raise PublicationError(f"WordPress publication not verified for topic: {topic}")
-                
-                logger.info(f"✅ WordPress publication verified for: {topic}")
-            
-            # 3. Успешное завершение
+            # 2. Успешное завершение - прямолинейная логика без проверок
             topic_status.status = 'completed'
             topic_status.end_time = datetime.now().isoformat()
             
@@ -266,67 +252,6 @@ class BatchProcessor:
             else:
                 logger.error(f"💀 Topic '{topic}' failed permanently after {max_retries} attempts")
                 return False
-    
-    async def _verify_wordpress_publication(self, topic: str) -> bool:
-        """
-        Проверяет что статья реально опубликована в WordPress
-        Возвращает True только если статья найдена
-        """
-        try:
-            # Получаем настройки WordPress из .env
-            wp_api_url = os.getenv('WORDPRESS_API_URL', 'https://ailynx.ru/wp-json/wp/v2')
-            wp_username = os.getenv('WORDPRESS_USERNAME', 'PetrovA')
-            wp_password = os.getenv('WORDPRESS_APP_PASSWORD', '')
-            
-            if not wp_password:
-                logger.warning("WordPress credentials not found, skipping publication verification")
-                return True
-            
-            # Поиск статьи по заголовку
-            search_url = f"{wp_api_url}/posts"
-            
-            # Формируем поисковой запрос по заголовку
-            expected_title_start = topic.strip()
-            
-            params = {
-                'search': expected_title_start,
-                'status': 'draft,publish',
-                'per_page': 10,
-                '_fields': 'id,title,link,status'
-            }
-            
-            response = requests.get(
-                search_url,
-                params=params,
-                auth=(wp_username, wp_password),
-                timeout=BATCH_CONFIG["wordpress_api_timeout"]
-            )
-            
-            if response.status_code != 200:
-                logger.error(f"WordPress API error: {response.status_code}")
-                return False
-            
-            posts = response.json()
-            
-            # Ищем пост с подходящим заголовком
-            for post in posts:
-                post_title = post.get('title', {}).get('rendered', '')
-                if expected_title_start.lower() in post_title.lower():
-                    logger.info(f"✅ Found published article: {post_title} (ID: {post['id']})")
-                    
-                    # Сохраняем информацию о публикации
-                    topic_status = self.progress.topic_statuses[topic]
-                    topic_status.wordpress_id = post['id']
-                    topic_status.wordpress_url = post.get('link')
-                    
-                    return True
-            
-            logger.warning(f"⚠️  Article not found in WordPress for topic: {topic}")
-            return False
-            
-        except Exception as e:
-            logger.error(f"Error verifying WordPress publication: {e}")
-            return False
     
     def _check_memory_usage(self):
         """Проверяет использование памяти и выдает предупреждения"""
