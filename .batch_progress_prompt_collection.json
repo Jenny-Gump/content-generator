@@ -1,0 +1,35 @@
+{
+  "content_type": "prompt_collection",
+  "topics_file": "topics_prompts.txt",
+  "total_topics": 2,
+  "completed_topics": [
+    "Prompts for Interview Prep Templates and Question Checklists",
+    "Prompts for Take-Home Task and Self-Presentation Templates"
+  ],
+  "failed_topics": [],
+  "current_topic": null,
+  "start_time": "2025-09-14T11:54:23.032044",
+  "last_update_time": "2025-09-14T12:21:42.650255",
+  "topic_statuses": {
+    "Prompts for Interview Prep Templates and Question Checklists": {
+      "topic": "Prompts for Interview Prep Templates and Question Checklists",
+      "status": "completed",
+      "start_time": "2025-09-14T11:54:23.032481",
+      "end_time": "2025-09-14T12:09:39.543741",
+      "attempts": 1,
+      "error_message": null,
+      "wordpress_id": null,
+      "wordpress_url": null
+    },
+    "Prompts for Take-Home Task and Self-Presentation Templates": {
+      "topic": "Prompts for Take-Home Task and Self-Presentation Templates",
+      "status": "completed",
+      "start_time": "2025-09-14T12:09:44.594403",
+      "end_time": "2025-09-14T12:21:37.619898",
+      "attempts": 1,
+      "error_message": null,
+      "wordpress_id": null,
+      "wordpress_url": null
+    }
+  }
+}
