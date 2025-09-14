@@ -318,11 +318,11 @@ def _make_llm_request_with_retry(stage_name: str, model_name: str, messages: lis
     raise Exception(f"All models failed for {stage_name}: {models_to_try}")
 
 
-def extract_prompts_from_article(article_text: str, topic: str, base_path: str = None, 
+def extract_prompts_from_article(article_text: str, topic: str, base_path: str = None,
                                  source_id: str = None, token_tracker: TokenTracker = None,
-                                 model_name: str = None) -> List[Dict]:
+                                 model_name: str = None, content_type: str = "prompt_collection") -> List[Dict]:
     """Extracts structured prompt data from a single article text.
-    
+
     Args:
         article_text: The text content to extract prompts from
         topic: The topic for context
@@ -330,12 +330,13 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
         source_id: Identifier for the source
         token_tracker: Token usage tracker
         model_name: Override model name (uses config default if None)
+        content_type: Content type folder name (prompt_collection, basic_articles)
     """
     logger.info("Extracting prompts from one article...")
     try:
         messages = _load_and_prepare_messages(
-            "prompt_collection", 
-            "01_extract", 
+            content_type,
+            "01_extract",
             {"topic": topic, "article_text": article_text}
         )
 
@@ -373,21 +374,23 @@ def extract_prompts_from_article(article_text: str, topic: str, base_path: str =
         return []
 
 
-def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str = None, 
-                              token_tracker: TokenTracker = None, model_name: str = None) -> Dict[str, Any]:
+def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str = None,
+                              token_tracker: TokenTracker = None, model_name: str = None,
+                              content_type: str = "prompt_collection") -> Dict[str, Any]:
     """Generates a WordPress-ready article from collected prompts.
-    
+
     Args:
         prompts: List of collected prompts to use for article generation
         topic: The topic for the article
         base_path: Path to save LLM interactions
         token_tracker: Token usage tracker
         model_name: Override model name (uses config default if None)
+        content_type: Content type folder name (prompt_collection, basic_articles)
     """
     logger.info("Generating WordPress article from collected prompts...")
     try:
         messages = _load_and_prepare_messages(
-            "prompt_collection",
+            content_type,
             "01_generate_wordpress_article",
             {"topic": topic, "prompts_json": json.dumps(prompts, indent=2)}
         )
@@ -429,17 +432,19 @@ def generate_wordpress_article(prompts: List[Dict], topic: str, base_path: str =
         return {"raw_response": f"ERROR: {str(e)}", "topic": topic}
 
 
-def editorial_review(raw_response: str, topic: str, base_path: str = None, 
-                    token_tracker: TokenTracker = None, model_name: str = None) -> Dict[str, Any]:
+def editorial_review(raw_response: str, topic: str, base_path: str = None,
+                    token_tracker: TokenTracker = None, model_name: str = None,
+                    content_type: str = "prompt_collection") -> Dict[str, Any]:
     """
     Performs editorial review and cleanup of WordPress article data.
-    
+
     Args:
         raw_response: Raw response string from generate_wordpress_article()
         topic: The topic for the article (used in editorial prompt)
         base_path: Path to save LLM interactions
         token_tracker: Token usage tracker
         model_name: Override model name (uses config default if None)
+        content_type: Content type folder name (prompt_collection, basic_articles)
     """
     logger.info("Starting editorial review and cleanup...")
     
@@ -461,8 +466,8 @@ def editorial_review(raw_response: str, topic: str, base_path: str = None,
     # Call LLM for editorial review
     try:
         messages = _load_and_prepare_messages(
-            "prompt_collection",
-            "02_editorial_review", 
+            content_type,
+            "02_editorial_review",
             {
                 "raw_response": raw_response,
                 "topic": topic

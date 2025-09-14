@@ -50,6 +50,7 @@ WORDPRESS_STATUS = os.getenv("WORDPRESS_STATUS", "draft")
 # Models for different pipeline stages
 LLM_MODELS = {
     "extract_prompts": "deepseek/deepseek-chat-v3.1:free",              # FREE Model for prompt extraction from articles
+    "create_structure": "deepseek/deepseek-chat-v3.1:free",             # FREE Model for creating ultimate structure (basic_articles)
     "generate_article": "deepseek/deepseek-chat-v3.1:free",             # FREE Model for WordPress article generation
     "editorial_review": "deepseek/deepseek-chat-v3.1:free",             # FREE Model for editorial review and cleanup
 }
@@ -57,6 +58,7 @@ LLM_MODELS = {
 # Fallback models for each stage (used when primary model fails)
 FALLBACK_MODELS = {
     "extract_prompts": "google/gemini-2.5-flash-lite-preview-06-17",    # Fallback to Gemini 2.5
+    "create_structure": "google/gemini-2.5-flash-lite-preview-06-17",   # Fallback to Gemini 2.5
     "generate_article": "deepseek-reasoner",                            # Fallback to paid DeepSeek if free fails
     "editorial_review": "google/gemini-2.5-flash-lite-preview-06-17",   # Fallback to Gemini 2.5
 }

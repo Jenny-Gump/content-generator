@@ -37,15 +37,269 @@ def save_artifact(data, path, filename):
             json.dump(data, f, indent=4, ensure_ascii=False)
     logger.info(f"Saved artifact to {filepath}")
 
-async def main_flow(topic: str, model_overrides: dict = None, publish_to_wordpress: bool = True):
+async def basic_articles_flow(topic: str, model_overrides: dict = None, publish_to_wordpress: bool = True):
     """
-The main pipeline for WordPress article generation.
-    
+    Pipeline for generating basic articles with FAQ and sources.
+
     Args:
         topic: The topic for content generation
         model_overrides: Dictionary to override default models for specific stages
+        publish_to_wordpress: Whether to publish to WordPress
+    """
+    logger.info(f"--- Starting Basic Articles Pipeline for topic: '{topic}' ---")
+
+    # Initialize token tracker
+    token_tracker = TokenTracker(topic=topic)
+
+    # Prepare model configuration with overrides
+    model_overrides = model_overrides or {}
+    from src.config import LLM_MODELS
+    active_models = {**LLM_MODELS, **model_overrides}
+
+    if model_overrides:
+        logger.info(f"Using model overrides: {model_overrides}")
+
+    # --- Setup Directories ---
+    sanitized_topic = sanitize_filename(topic)
+    base_output_path = os.path.join("output", sanitized_topic)
+    paths = {
+        "search": os.path.join(base_output_path, "01_search"),
+        "parsing": os.path.join(base_output_path, "02_parsing"),
+        "scoring": os.path.join(base_output_path, "03_scoring"),
+        "selection": os.path.join(base_output_path, "04_selection"),
+        "cleaning": os.path.join(base_output_path, "05_cleaning"),
+        "structure_extraction": os.path.join(base_output_path, "06_structure_extraction"),
+        "ultimate_structure": os.path.join(base_output_path, "07_ultimate_structure"),
+        "final_article": os.path.join(base_output_path, "08_final_article"),
+        "editorial_review": os.path.join(base_output_path, "09_editorial_review"),
+    }
+    for path in paths.values():
+        os.makedirs(path, exist_ok=True)
+
+    # --- Этапы 1-6: Поиск, парсинг, очистка (те же что в main_flow) ---
+    firecrawl_client = FirecrawlClient()
+    search_results = await firecrawl_client.search(topic)
+    save_artifact(search_results, paths["search"], "01_search_results.json")
+
+    urls = [result['url'] for result in search_results if 'url' in result]
+    if not urls:
+        logger.error("No URLs found in search results. Exiting.")
+        return
+    save_artifact(urls, paths["search"], "02_extracted_urls.json")
+
+    clean_urls = filter_urls(urls)
+    save_artifact(clean_urls, paths["parsing"], "01_clean_urls.json")
+
+    if not clean_urls:
+        logger.error("No clean URLs left after filtering. Exiting.")
+        return
+
+    scraped_data = await firecrawl_client.scrape_urls(clean_urls)
+    save_artifact(scraped_data, paths["parsing"], "02_scraped_data.json")
+
+    valid_sources = validate_and_prepare_sources(scraped_data)
+    save_artifact(valid_sources, paths["parsing"], "03_valid_sources.json")
+
+    if not valid_sources:
+        logger.error("No valid sources found after scraping and validation. Exiting.")
+        return
+
+    scored_sources = score_sources(valid_sources, topic)
+    save_artifact(scored_sources, paths["scoring"], "scored_sources.json")
+
+    top_sources = select_best_sources(scored_sources)
+    save_artifact(top_sources, paths["selection"], "top_5_sources.json")
+
+    if not top_sources:
+        logger.error("Could not select any top sources. Exiting.")
+        return
+
+    cleaned_sources = clean_content(top_sources)
+    save_artifact(cleaned_sources, paths["cleaning"], "final_cleaned_sources.json")
+
+    # Log cleaning metrics summary
+    total_original = sum(source.get('original_length', 0) for source in cleaned_sources)
+    total_cleaned = sum(source.get('cleaned_length', 0) for source in cleaned_sources)
+    overall_reduction = ((total_original - total_cleaned) / total_original * 100) if total_original > 0 else 0
+    logger.info(f"Content cleaning summary: {total_original:,} → {total_cleaned:,} chars ({overall_reduction:.1f}% reduction)")
+
+    # --- Этап 7: Извлечение структур (вместо промптов) ---
+    logger.info(f"Starting structure extraction from {len(cleaned_sources)} sources...")
+    all_structures = []
+    extraction_stats = []
+
+    for i, source in enumerate(cleaned_sources):
+        source_id = f"source_{i+1}"
+        logger.info(f"Extracting structure from {source_id}...")
+
+        structures = extract_prompts_from_article(
+            article_text=source['cleaned_content'],
+            topic=topic,
+            base_path=paths["structure_extraction"],
+            source_id=source_id,
+            token_tracker=token_tracker,
+            model_name=active_models.get("extract_prompts"),
+            content_type="basic_articles"  # Используем папку basic_articles
+        )
+
+        extraction_stats.append({
+            "source_id": source_id,
+            "url": source.get('url', 'Unknown'),
+            "structures_extracted": len(structures)
+        })
+
+        if len(structures) == 0:
+            logger.warning(f"⚠️  {source_id} extracted 0 structures - possible JSON parsing issue")
+        else:
+            logger.info(f"✅ {source_id} extracted {len(structures)} structures")
+
+        all_structures.extend(structures)
+
+    save_artifact(all_structures, paths["structure_extraction"], "all_structures.json")
+
+    if not all_structures:
+        logger.error("No structures could be extracted from the sources. Exiting.")
+        return
+
+    # --- Этап 8: Создание ультимативной структуры ---
+    logger.info("Creating ultimate structure from extracted structures...")
+
+    # Используем специальный промпт для создания ультимативной структуры
+    from src.llm_processing import _load_and_prepare_messages, _make_llm_request_with_retry, save_llm_interaction
+
+    messages = _load_and_prepare_messages(
+        "basic_articles",
+        "02_create_ultimate_structure",
+        {"topic": topic, "article_text": json.dumps(all_structures, indent=2)}
+    )
+
+    response_obj, actual_model = _make_llm_request_with_retry(
+        stage_name="create_structure",
+        model_name=active_models.get("create_structure"),
+        messages=messages,
+        token_tracker=token_tracker,
+        temperature=0.3
+    )
+
+    content = response_obj.choices[0].message.content
+    save_llm_interaction(
+        base_path=paths["ultimate_structure"],
+        stage_name="create_structure",
+        messages=messages,
+        response=content,
+        request_id="ultimate_structure"
+    )
+
+    # Парсим ответ
+    from src.llm_processing import _parse_json_from_response
+    ultimate_structure = _parse_json_from_response(content)
+
+    save_artifact(ultimate_structure, paths["ultimate_structure"], "ultimate_structure.json")
+
+    if not ultimate_structure:
+        logger.error("Could not create ultimate structure. Exiting.")
+        return
+
+    # --- Этап 9: Генерация WordPress статьи ---
+    logger.info("Generating WordPress-ready article from ultimate structure...")
+    wordpress_data = generate_wordpress_article(
+        prompts=ultimate_structure,
+        topic=topic,
+        base_path=paths["final_article"],
+        token_tracker=token_tracker,
+        model_name=active_models.get("generate_article"),
+        content_type="basic_articles"
+    )
+
+    save_artifact(wordpress_data, paths["final_article"], "wordpress_data.json")
+
+    if isinstance(wordpress_data, dict) and "content" in wordpress_data:
+        save_artifact(wordpress_data["content"], paths["final_article"], "article_content.html")
+        logger.info(f"Generated article: {wordpress_data.get('title', 'No title')}")
+    else:
+        logger.error("Invalid WordPress data structure returned")
+
+    # --- Этап 10: Editorial Review ---
+    logger.info("Starting editorial review and cleanup...")
+    raw_response = wordpress_data.get("raw_response", "")
+    wordpress_data_final = editorial_review(
+        raw_response=raw_response,
+        topic=topic,
+        base_path=paths["editorial_review"],
+        token_tracker=token_tracker,
+        model_name=active_models.get("editorial_review"),
+        content_type="basic_articles"
+    )
+
+    save_artifact(wordpress_data_final, paths["editorial_review"], "wordpress_data_final.json")
+
+    if isinstance(wordpress_data_final, dict) and "content" in wordpress_data_final:
+        save_artifact(wordpress_data_final["content"], paths["editorial_review"], "article_content_final.html")
+        logger.info(f"Editorial review completed: {wordpress_data_final.get('title', 'No title')}")
+    else:
+        logger.warning("Editorial review returned invalid structure, using original data")
+        wordpress_data_final = wordpress_data
+
+    # --- Этап 11: WordPress Publication (опционально) ---
+    if publish_to_wordpress:
+        logger.info("--- Starting WordPress Publication ---")
+        try:
+            wp_publisher = WordPressPublisher()
+
+            # Test connection first
+            logger.info("Testing WordPress connection...")
+            from src.wordpress_publisher import test_wordpress_connection
+            if test_wordpress_connection():
+                logger.info("✅ WordPress connection successful")
+
+                # Publish article (use final edited version)
+                publication_result = wp_publisher.publish_article(wordpress_data_final)
+
+                # Save publication results
+                save_artifact(publication_result, paths["editorial_review"], "wordpress_publication_result.json")
+
+                if publication_result['success']:
+                    logger.info(f"🎉 Article successfully published to WordPress!")
+                    logger.info(f"📝 WordPress ID: {publication_result['wordpress_id']}")
+                    logger.info(f"🔗 Edit URL: {publication_result['url']}")
+                else:
+                    logger.error(f"❌ WordPress publication failed: {publication_result['error']}")
+            else:
+                logger.error("❌ WordPress connection test failed, skipping publication")
+
+        except Exception as e:
+            logger.error(f"❌ WordPress publication error: {str(e)}")
+            save_artifact({
+                'success': False,
+                'error': str(e)
+            }, paths["editorial_review"], "wordpress_publication_result.json")
+    else:
+        logger.info("📝 WordPress publication skipped (use --publish-wp to enable)")
+
+    # --- Save Token Usage Report ---
+    token_report_path = token_tracker.save_token_report(
+        base_path=base_output_path,
+        filename="token_usage_report.json"
+    )
+
+    logger.info("--- Basic Articles Pipeline Finished ---")
+    logger.info(f"All artifacts saved in: {base_output_path}")
+    if token_report_path:
+        logger.info(f"Token usage report: {token_report_path}")
+
+
+async def main_flow(topic: str, model_overrides: dict = None, publish_to_wordpress: bool = True, content_type: str = "prompt_collection"):
+    """
+The main pipeline for WordPress article generation.
+
+    Args:
+        topic: The topic for content generation
+        model_overrides: Dictionary to override default models for specific stages
+        publish_to_wordpress: Whether to publish to WordPress
+        content_type: Content type (prompt_collection, basic_articles)
     """
     logger.info(f"--- Starting Content Generation Pipeline for topic: '{topic}' ---")
+    logger.info(f"--- Content Type: {content_type} ---")
     
     # Initialize token tracker
     token_tracker = TokenTracker(topic=topic)
@@ -346,4 +600,9 @@ if __name__ == "__main__":
         logger.info(f"   Topic: {args.topic}")
         logger.info(f"   Publish to WordPress: {publish_to_wp}")
         
-        asyncio.run(main_flow(args.topic, model_overrides=override_models, publish_to_wordpress=publish_to_wp))
+
+        # Выберем правильную функцию в зависимости от content_type
+        if args.content_type == "basic_articles":
+            asyncio.run(basic_articles_flow(args.topic, model_overrides=override_models, publish_to_wordpress=publish_to_wp))
+        else:
+            asyncio.run(main_flow(args.topic, model_overrides=override_models, publish_to_wordpress=publish_to_wp))
