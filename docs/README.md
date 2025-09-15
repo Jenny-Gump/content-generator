@@ -74,9 +74,16 @@ This project is an automated pipeline for generating high-quality content based 
 - **Content Quality Metrics**: Real-time tracking of cleaning efficiency with before/after statistics
 - **Smart Navigation Filtering**: Automatic removal of repetitive navigation elements and UI clutter
 
+### 📋 Article Structure Improvements (NEW - September 15, 2025)
+- **H2/H3 Hierarchical Structure**: Enhanced prompt system to generate articles with proper heading hierarchy
+- **Flexible Subsections**: Automatically detects and creates subsections (H3) where they improve readability
+- **Smart Structure Detection**: Analyzes source articles to identify logical content subdivisions
+- **Natural Heading Flow**: Generates H3 headers only when they add value, avoiding artificial fragmentation
+- **Backward Compatible**: Articles without H3 headers remain valid - no forced subdivisions
+
 ### ✅ Previous Updates (January 2025)
 - **Full LLM Request/Response Logging**: All interactions with DeepSeek API are now logged for debugging
-- **Robust JSON Parsing**: Fixed "Extra data" and "Failed to parse JSON" errors with multiple parsing strategies  
+- **Robust JSON Parsing**: Fixed "Extra data" and "Failed to parse JSON" errors with multiple parsing strategies
 - **Improved Prompts**: Enhanced prompt engineering with clear examples and format specifications
 - **Complete Audit Trail**: Every LLM call is saved with timestamps, parameters, and raw responses
 
@@ -138,6 +145,9 @@ This project is an automated pipeline for generating high-quality content based 
     # Batch processing without WordPress publication
     python main.py --batch topics_prompts.txt --no-publish
 
+    # Batch processing for basic articles (informational articles with H2/H3 structure)
+    python main.py --batch topics_basic_articles.txt --content-type basic_articles --no-publish
+
     # See all available options
     python main.py --help
     ```
@@ -173,8 +183,11 @@ The pipeline consists of 8 automated stages:
 
 ### Usage Examples
 ```bash
-# Basic batch processing
+# Basic batch processing (prompts)
 python main.py --batch topics_prompts.txt
+
+# Basic articles with H2/H3 structure
+python main.py --batch topics_basic_articles.txt --content-type basic_articles --no-publish
 
 # With custom content type and resume
 python main.py --batch topics_business.txt --content-type business_ideas --resume
@@ -183,7 +196,7 @@ python main.py --batch topics_business.txt --content-type business_ideas --resum
 python main.py --batch topics_prompts.txt --no-publish
 
 # Custom models for batch processing
-python main.py --batch topics_prompts.txt --generate-model "openai/gpt-4o" --editorial-model "deepseek-reasoner"
+python main.py --batch topics_basic_articles.txt --content-type basic_articles --generate-model "openai/gpt-4o" --editorial-model "deepseek-reasoner"
 ```
 
 ### Topics File Format
@@ -199,6 +212,7 @@ prompts for educational content creation
 ### Configuration Files
 - **`batch_config.py`**: Main configuration for timeouts, memory limits, retry policies
 - **`topics_prompts.txt`**: Example topics file for prompt-related content
+- **`topics_basic_articles.txt`**: Example topics file for basic articles with H2/H3 structure
 - **Progress files**: `.batch_progress_{content_type}.json` for tracking progress
 - **Lock files**: `.batch_lock_{content_type}.pid` to prevent concurrent runs
 
