@@ -58,11 +58,18 @@ CONTENT_TYPES = {
         "wordpress_category": "marketing"
     },
     "educational_content": {
-        "prompts_folder": "prompts/educational_content", 
+        "prompts_folder": "prompts/educational_content",
         "description": "Educational and tutorial content",
         "default_topics_file": "topics_educational.txt",
         "output_prefix": "edu_",
         "wordpress_category": "education"
+    },
+    "basic_articles": {
+        "prompts_folder": "prompts/basic_articles",
+        "description": "Basic informational articles with FAQ and sources",
+        "default_topics_file": "topics_basic_articles.txt",
+        "output_prefix": "article_",
+        "wordpress_category": "articles"
     }
 }
 
